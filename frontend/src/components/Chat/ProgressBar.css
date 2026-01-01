@@ -1,0 +1,79 @@
+.progress-container {
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.progress-text {
+  color: var(--color-text-secondary);
+}
+
+.progress-percentage {
+  color: var(--color-primary);
+  font-size: 1rem;
+}
+
+.progress-bar-track {
+  height: 8px;
+  background-color: var(--color-border);
+  border-radius: 9999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
+  border-radius: 9999px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-shimmer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .progress-info {
+    font-size: 0.8rem;
+  }
+
+  .progress-percentage {
+    font-size: 0.9rem;
+  }
+
+  .progress-bar-track {
+    height: 6px;
+  }
+}

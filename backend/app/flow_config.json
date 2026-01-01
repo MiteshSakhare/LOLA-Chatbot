@@ -1,0 +1,191 @@
+{
+  "questions": [
+    {
+      "id": "business_name_timezone",
+      "order": 1,
+      "question_text": "What is the name of your business and your timezone?",
+      "type": "text",
+      "required": true,
+      "validation": {
+        "min_length": 2,
+        "max_length": 200
+      },
+      "placeholder": "e.g., Acme Corp, EST"
+    },
+    {
+      "id": "vertical",
+      "order": 2,
+      "question_text": "What is your vertical?",
+      "type": "single_choice",
+      "required": true,
+      "options": [
+        "Health",
+        "Wellness",
+        "Beauty",
+        "Retail",
+        "Hospitality",
+        "Food & Beverage",
+        "Other"
+      ]
+    },
+    {
+      "id": "brand",
+      "order": 3,
+      "question_text": "Please configure/share your brand including colors and visuals",
+      "type": "text",
+      "required": true,
+      "validation": {
+        "min_length": 5,
+        "max_length": 500
+      },
+      "placeholder": "Describe your brand colors, logo, visual identity..."
+    },
+    {
+      "id": "success",
+      "order": 4,
+      "question_text": "What does success look like?",
+      "type": "single_choice",
+      "required": true,
+      "options": [
+        "Grow revenue",
+        "Drive loyalty",
+        "Improve repeat customers",
+        "Drive retention",
+        "Win in new markets",
+        "Enter new verticals",
+        "Other"
+      ]
+    },
+    {
+      "id": "revenue",
+      "order": 5,
+      "question_text": "What is your current revenue?",
+      "type": "single_choice",
+      "required": true,
+      "options": [
+        "less than $1m",
+        "$1m-$5m",
+        "$5m-$10m",
+        "$10m+"
+      ]
+    },
+    {
+      "id": "retention_reason",
+      "order": 6,
+      "question_text": "What do you believe keeps your customers coming back?",
+      "type": "multi_choice",
+      "required": true,
+      "validation": {
+        "min_selections": 1,
+        "max_selections": 5
+      },
+      "options": [
+        "Awesome product",
+        "Great price",
+        "Relevant promotions & offers",
+        "Quality service",
+        "Our community",
+        "Top quality",
+        "Other"
+      ]
+    },
+    {
+      "id": "dropoff_stage",
+      "order": 7,
+      "question_text": "Where do you see the biggest drop-offs happen in the customer lifecycle?",
+      "type": "single_choice",
+      "required": true,
+      "options": [
+        "During awareness phase",
+        "When on the site considering a purchase",
+        "During check-out",
+        "Repeat purchase"
+      ]
+    },
+    {
+      "id": "dropoff_reason",
+      "order": 8,
+      "question_text": "Do you know why customers drop off?",
+      "type": "single_choice",
+      "required": true,
+      "options": [
+        "Price",
+        "Competition",
+        "Relevance",
+        "Trust",
+        "Unclear product information",
+        "Other (please explain)"
+      ]
+    },
+    {
+      "id": "email_role",
+      "order": 9,
+      "question_text": "What role does email marketing play compared to other channels?",
+      "type": "single_choice",
+      "required": true,
+      "options": [
+        "Revenue engine",
+        "Brand building",
+        "Engagement"
+      ]
+    },
+    {
+      "id": "email_performance",
+      "order": 10,
+      "question_text": "Where do you see email performing best?",
+      "type": "multi_choice",
+      "required": true,
+      "validation": {
+        "min_selections": 1,
+        "max_selections": 8
+      },
+      "options": [
+        "Awareness",
+        "Consideration",
+        "Conversion moment",
+        "Customer loyalty",
+        "Enhancing engagement rates",
+        "Effective promos",
+        "Are your emails too transactional rather than emotional",
+        "Too weak for community building",
+        "Low virality",
+        "Poor VIP experience",
+        "Win-back",
+        "Other"
+      ]
+    },
+    {
+      "id": "ideal_customer",
+      "order": 11,
+      "question_text": "Describe your ideal customer profile in the following dimensions: Age Group, Gender, Income, Geo Location, Lifestyle Values (e.g. Organic, Sustainable, Cheap/Economical)",
+      "type": "text",
+      "required": true,
+      "validation": {
+        "min_length": 20,
+        "max_length": 1000
+      },
+      "placeholder": "Describe age, gender, income, location, and lifestyle values..."
+    },
+    {
+      "id": "top_goals",
+      "order": 12,
+      "question_text": "What are your top 3 primary goals for the next 12 months? (Choose three options)",
+      "type": "multi_choice",
+      "required": true,
+      "validation": {
+        "min_selections": 3,
+        "max_selections": 3
+      },
+      "options": [
+        "Increase repeat purchases",
+        "Boost revenue",
+        "Grow subscriptions/refills",
+        "Increase profitability",
+        "Increase AOV through bundles/upsells",
+        "Improve email engagement",
+        "Reduce churn",
+        "Other"
+      ]
+    }
+  ]
+}
