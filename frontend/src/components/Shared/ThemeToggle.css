@@ -1,0 +1,128 @@
+.theme-toggle {
+  background: var(--glass-background);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 2px solid var(--glass-border);
+  border-radius: 9999px;
+  padding: 0.5rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  align-items: center;
+}
+
+.theme-toggle:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg), var(--shadow-glow);
+  border-color: var(--color-primary);
+}
+
+.theme-toggle:active {
+  transform: scale(0.95);
+}
+
+.theme-toggle-track {
+  width: 64px;
+  height: 32px;
+  background: var(--gradient-primary);
+  border-radius: 9999px;
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-toggle-track::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    45deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.2) 50%,
+    transparent 70%
+  );
+  animation: shimmer 3s infinite;
+}
+
+.theme-toggle-thumb {
+  width: 28px;
+  height: 28px;
+  background: white;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.theme-toggle-thumb.light {
+  left: 2px;
+  background: linear-gradient(135deg, #ffd93d 0%, #ff9800 100%);
+  animation: sunRise 0.4s ease-out;
+}
+
+.theme-toggle-thumb.dark {
+  left: 34px;
+  background: linear-gradient(135deg, #1e3a8a 0%, #312e81 100%);
+  animation: moonRise 0.4s ease-out;
+}
+
+@keyframes sunRise {
+  0% {
+    transform: rotate(-180deg) scale(0.5);
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+@keyframes moonRise {
+  0% {
+    transform: rotate(180deg) scale(0.5);
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+.theme-icon {
+  font-size: 18px !important;
+  color: white;
+  animation: iconSpin 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes iconSpin {
+  0% {
+    transform: rotate(-180deg) scale(0);
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .theme-toggle-track {
+    width: 56px;
+    height: 28px;
+  }
+
+  .theme-toggle-thumb {
+    width: 24px;
+    height: 24px;
+  }
+
+  .theme-toggle-thumb.dark {
+    left: 30px;
+  }
+
+  .theme-icon {
+    font-size: 16px !important;
+  }
+}

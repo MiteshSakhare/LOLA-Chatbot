@@ -1,7 +1,9 @@
 import axios from 'axios';
 
 const isDevelopment = import.meta.env.DEV;
-const API_BASE_URL = isDevelopment ? 'http://localhost:5000' : '';
+const API_BASE_URL = isDevelopment 
+  ? 'http://localhost:5000' 
+  : import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -10,58 +12,49 @@ const api = axios.create({
   },
 });
 
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    console.error('API Error:', error.response?.data || error.message);
-    return Promise.reject(error);
-  }
-);
+// Get client info
+const getClientInfo = () => {
+  return {
+    ip_address: 'browser',
+    user_agent: navigator.userAgent,
+  };
+};
 
-export const sessionAPI = {
-  startSession: async () => {
-    const response = await api.post('/session/start');
+// Start a new session
+export const startSession = async () => {
+  try {
+    const clientInfo = getClientInfo();
+    const response = await api.post('/session/start', clientInfo);
     return response.data;
-  },
+  } catch (error) {
+    console.error('Start session error:', error);
+    throw error.response?.data || error;
+  }
+};
 
-  submitAnswer: async (sessionId, questionId, answer) => {
+// Submit an answer - FIXED ENDPOINT
+export const submitAnswer = async (sessionId, questionId, answer) => {
+  try {
     const response = await api.post(`/session/${sessionId}/answer`, {
       question_id: questionId,
       answer: answer,
     });
     return response.data;
-  },
-
-  getSummary: async (sessionId) => {
-    const response = await api.get(`/session/${sessionId}/summary`);
-    return response.data;
-  },
+  } catch (error) {
+    console.error('Submit answer error:', error);
+    throw error.response?.data || error;
+  }
 };
 
-export const adminAPI = {
-  getResponses: async (page = 1, perPage = 20) => {
-    const response = await api.get('/admin/responses', {
-      params: { page, per_page: perPage },
-    });
+// Get session summary
+export const getSessionSummary = async (sessionId) => {
+  try {
+    const response = await api.get(`/session/summary/${sessionId}`);
     return response.data;
-  },
-
-  getResponse: async (sessionId) => {
-    const response = await api.get(`/admin/response/${sessionId}`);
-    return response.data;
-  },
-
-  deleteResponse: async (sessionId) => {
-    const response = await api.delete(`/admin/response/${sessionId}`);
-    return response.data;
-  },
-
-  exportResponses: async () => {
-    const response = await api.get('/admin/export?format=csv', {
-      responseType: 'blob',
-    });
-    return response.data;
-  },
+  } catch (error) {
+    console.error('Get summary error:', error);
+    throw error.response?.data || error;
+  }
 };
 
 export default api;

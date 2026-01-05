@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import SendIcon from '@mui/icons-material/Send';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import './QuestionInput.css';
 
 const QuestionInput = ({ question, onSubmit, isLoading }) => {
@@ -19,10 +22,9 @@ const QuestionInput = ({ question, onSubmit, isLoading }) => {
 
   const handleSubmit = (e) => {
     if (e) e.preventDefault();
-    
     setValidationError('');
-    let answer;
 
+    let answer;
     if (question.type === 'text') {
       answer = textValue.trim();
       if (!answer && question.required) {
@@ -67,96 +69,117 @@ const QuestionInput = ({ question, onSubmit, isLoading }) => {
   };
 
   const handleMultiChoiceToggle = (option) => {
-    setSelectedOptions(prev => 
-      prev.includes(option) 
+    setSelectedOptions(prev =>
+      prev.includes(option)
         ? prev.filter(o => o !== option)
         : [...prev, option]
     );
   };
 
-  const isSubmitDisabled = () => {
-    if (isLoading) return true;
-    if (question.type === 'text') return !textValue.trim();
-    if (question.type === 'single_choice') return !selectedOption;
-    if (question.type === 'multi_choice') return selectedOptions.length === 0;
-    return false;
-  };
-
-  if (!question) return null;
+  const isSubmitDisabled = isLoading || (
+    question.type === 'text' ? !textValue.trim() :
+    question.type === 'single_choice' ? !selectedOption :
+    question.type === 'multi_choice' ? selectedOptions.length === 0 :
+    false
+  );
 
   return (
-    <div className="question-input">
-      <div className="question-input-content">
-        {question.type === 'text' && (
-          <div className="input-group">
-            <textarea
-              value={textValue}
-              onChange={(e) => setTextValue(e.target.value)}
-              placeholder={question.placeholder || 'Type your answer...'}
+    <div className="input-container">
+      {question.type === 'text' && (
+        <div className="text-input-wrapper">
+          <textarea
+            className="text-input-field"
+            value={textValue}
+            onChange={(e) => setTextValue(e.target.value)}
+            placeholder={question.placeholder || 'e.g., Acme Corp, EST'}
+            disabled={isLoading}
+            rows={4}
+          />
+          <div className="input-meta">
+            <span className="char-counter">
+              {textValue.length}
+              {question.validation?.max_length && ` / ${question.validation.max_length}`}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {question.type === 'single_choice' && (
+        <div className="options-container">
+          {question.options.map((option, index) => (
+            <button
+              key={index}
+              type="button"
+              className={`option-item ${selectedOption === option ? 'selected' : ''}`}
+              onClick={() => setSelectedOption(option)}
               disabled={isLoading}
-              rows={4}
-              className="text-input"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && e.ctrlKey && !isSubmitDisabled()) {
-                  handleSubmit();
-                }
-              }}
-            />
-          </div>
-        )}
+            >
+              <div className="option-indicator">
+                {selectedOption === option ? (
+                  <RadioButtonCheckedIcon className="radio-icon checked" />
+                ) : (
+                  <RadioButtonUncheckedIcon className="radio-icon" />
+                )}
+              </div>
+              <span className="option-label">{option}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
-        {question.type === 'single_choice' && (
-          <div className="options-group">
-            {question.options.map((option) => (
-              <button
-                key={option}
-                className={`option-button ${selectedOption === option ? 'selected' : ''}`}
-                onClick={() => setSelectedOption(option)}
-                disabled={isLoading}
-              >
-                <span className="option-text">{option}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {question.type === 'multi_choice' && (
-          <div className="options-group multi">
-            {question.options.map((option) => (
-              <label key={option} className="checkbox-option">
-                <input
-                  type="checkbox"
-                  checked={selectedOptions.includes(option)}
-                  onChange={() => handleMultiChoiceToggle(option)}
-                  disabled={isLoading}
-                  style={{ display: 'none' }}
-                />
-                <div className="checkbox-custom">
-                  {selectedOptions.includes(option) ? (
-                    <CheckBoxIcon style={{ fontSize: '24px', color: 'var(--color-primary)' }} />
-                  ) : (
-                    <CheckBoxOutlineBlankIcon style={{ fontSize: '24px', color: 'var(--color-text-tertiary)' }} />
-                  )}
+      {question.type === 'multi_choice' && (
+        <div className="options-container">
+          {question.options.map((option, index) => (
+            <button
+              key={index}
+              type="button"
+              className={`option-item ${selectedOptions.includes(option) ? 'selected' : ''}`}
+              onClick={() => handleMultiChoiceToggle(option)}
+              disabled={isLoading}
+            >
+              <div className="option-indicator">
+                {selectedOptions.includes(option) ? (
+                  <CheckBoxIcon className="checkbox-icon checked" />
+                ) : (
+                  <CheckBoxOutlineBlankIcon className="checkbox-icon" />
+                )}
+              </div>
+              <span className="option-label">{option}</span>
+              {selectedOptions.includes(option) && (
+                <div className="selection-number">
+                  {selectedOptions.indexOf(option) + 1}
                 </div>
-                <span className="checkbox-label">{option}</span>
-              </label>
-            ))}
-          </div>
-        )}
+              )}
+            </button>
+          ))}
+        </div>
+      )}
 
-        {validationError && (
-          <div className="validation-error">
-            {validationError}
-          </div>
-        )}
+      {validationError && (
+        <div className="validation-message">
+          <span className="validation-icon">⚠️</span>
+          <span className="validation-text">{validationError}</span>
+        </div>
+      )}
 
+      <div className="submit-section">
         <button
+          type="button"
+          className="submit-button"
           onClick={handleSubmit}
-          disabled={isSubmitDisabled()}
-          className="btn btn-primary submit-button"
+          disabled={isSubmitDisabled}
         >
-          <span>{isLoading ? 'Submitting...' : 'Submit'}</span>
-          <SendIcon style={{ fontSize: '20px' }} />
+          {isLoading ? (
+            <>
+              <span className="button-spinner"></span>
+              Processing...
+            </>
+          ) : (
+            <>
+              Submit Answer
+              <ArrowForwardIcon className="submit-icon" />
+            </>
+          )}
         </button>
       </div>
     </div>

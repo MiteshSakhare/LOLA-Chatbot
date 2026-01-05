@@ -1,79 +1,202 @@
-.progress-container {
-  max-width: 900px;
+.progress-wrapper {
+  max-width: 1000px;
   margin: 0 auto;
-  width: 100%;
 }
 
-.progress-info {
+.progress-info-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 0.75rem;
-  font-size: 0.875rem;
-  font-weight: 600;
+}
+
+.progress-label-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.progress-icon {
+  font-size: 18px !important;
+  color: var(--color-primary);
 }
 
 .progress-text {
+  font-size: 0.9375rem;
   color: var(--color-text-secondary);
+  font-weight: 600;
 }
 
-.progress-percentage {
+.progress-text strong {
   color: var(--color-primary);
-  font-size: 1rem;
+  font-weight: 800;
 }
 
-.progress-bar-track {
-  height: 8px;
-  background-color: var(--color-border);
+.progress-percent {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  padding: 0.25rem 0.875rem;
+  background: var(--gradient-primary);
+  color: white;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+}
+
+.progress-bar-wrapper {
+  position: relative;
+  margin-bottom: 0.875rem;
+}
+
+.progress-bar-bg {
+  height: 10px;
+  background: var(--color-border);
   border-radius: 9999px;
   overflow: hidden;
-  position: relative;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.progress-bar-fill {
+.progress-bar-active {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
+  background: var(--gradient-primary);
   border-radius: 9999px;
-  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.6s ease;
   position: relative;
-  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(99, 102, 241, 0.3);
 }
 
-.progress-shimmer {
+.progress-shine {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  animation: shine 2s infinite;
+}
+
+@keyframes shine {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+/* Milestone dots */
+.progress-dots {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.3) 50%,
-    transparent 100%
-  );
-  animation: shimmer 2s infinite;
+  height: 10px;
+  pointer-events: none;
 }
 
-@keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
+.progress-dot {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.progress-dot.active {
+  background: var(--gradient-primary);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+}
+
+.dot-check {
+  font-size: 0.5rem;
+  color: white;
+  font-weight: bold;
+}
+
+/* Stage labels - More compact */
+.progress-stages {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.625rem;
+}
+
+.stage-label {
+  font-size: 0.8125rem;
+  color: var(--color-text-tertiary);
+  font-weight: 600;
+  padding: 0.375rem 0.875rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 9999px;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  opacity: 0.7;
+  flex: 1;
+  text-align: center;
+}
+
+.stage-label.active {
+  background: var(--gradient-primary);
+  color: white;
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+  opacity: 1;
 }
 
 /* Mobile Responsive */
 @media (max-width: 768px) {
-  .progress-info {
-    font-size: 0.8rem;
+  .progress-info-bar {
+    margin-bottom: 0.625rem;
   }
 
-  .progress-percentage {
-    font-size: 0.9rem;
+  .progress-icon {
+    font-size: 16px !important;
   }
 
-  .progress-bar-track {
-    height: 6px;
+  .progress-text {
+    font-size: 0.875rem;
+  }
+
+  .progress-percent {
+    min-width: 48px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+
+  .progress-bar-bg {
+    height: 8px;
+  }
+
+  .progress-bar-wrapper {
+    margin-bottom: 0.75rem;
+  }
+
+  .progress-dot {
+    width: 14px;
+    height: 14px;
+  }
+
+  .stage-label {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .progress-stages {
+    display: none;
   }
 }

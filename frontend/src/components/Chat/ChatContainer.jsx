@@ -1,11 +1,13 @@
 import React, { useEffect, useRef } from 'react';
-import Message from './Message';
 import QuestionInput from './QuestionInput';
 import ProgressBar from './ProgressBar';
 import ThemeToggle from '../Shared/ThemeToggle';
 import { useSession } from '../../hooks/useSession';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
+import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
 import './ChatContainer.css';
 
 const ChatContainer = () => {
@@ -23,7 +25,6 @@ const ChatContainer = () => {
     resetSession,
   } = useSession();
 
-  const messagesEndRef = useRef(null);
   const hasStartedSession = useRef(false);
 
   useEffect(() => {
@@ -36,95 +37,152 @@ const ChatContainer = () => {
     }
   }, []);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
   if (isCompleted) {
     return (
-      <div className="chat-container">
-        <div className="chat-header">
+      <div className="survey-container">
+        <div className="survey-header-minimal">
           <ThemeToggle />
         </div>
         <div className="completion-screen">
-          <div className="completion-icon">
-            <CheckCircleIcon style={{ fontSize: '80px', color: 'var(--color-success)' }} />
-          </div>
-          <h1>Thank You!</h1>
-          <p>Your business discovery form has been submitted successfully.</p>
-          
-          {summary && summary.answers && (
-            <div className="summary-section card">
-              <h3>Your Responses</h3>
-              <div className="summary-grid">
-                {Object.entries(summary.answers).map(([key, value]) => (
-                  <div key={key} className="summary-item">
-                    <strong>{key.replace(/_/g, ' ')}:</strong>
-                    <span>{Array.isArray(value) ? value.join(', ') : value}</span>
-                  </div>
-                ))}
+          <div className="completion-content">
+            <div className="success-animation">
+              <div className="success-circle">
+                <CheckCircleIcon className="success-icon" />
               </div>
             </div>
-          )}
+            
+            <h1 className="completion-title">🎉 Awesome!</h1>
+            <p className="completion-subtitle">
+              Your business discovery journey is complete. We've captured all the details!
+            </p>
+            
+            {summary && summary.answers && (
+              <div className="summary-card">
+                <div className="summary-header">
+                  <TipsAndUpdatesIcon />
+                  <h3>Your Responses Summary</h3>
+                </div>
+                <div className="summary-list">
+                  {Object.entries(summary.answers).map(([key, value], index) => (
+                    <div key={key} className="summary-item" style={{'--item-index': index}}>
+                      <div className="summary-key">
+                        <span className="summary-bullet">•</span>
+                        {key.replace(/_/g, ' ')}
+                      </div>
+                      <div className="summary-value">
+                        {Array.isArray(value) ? value.join(', ') : value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-          <button onClick={resetSession} className="btn btn-primary btn-lg">
-            <RefreshIcon style={{ fontSize: '20px' }} />
-            Start New Session
-          </button>
+            <button onClick={resetSession} className="btn btn-primary btn-restart">
+              <RefreshIcon />
+              Start New Session
+              <RocketLaunchIcon className="btn-icon-end" />
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="chat-container">
-      <div className="chat-header">
-        <div className="header-content">
-          <h2>Business Discovery Chat</h2>
+    <div className="survey-container">
+      {/* Header */}
+      <header className="survey-header">
+        <div className="header-wrapper">
+          <div className="header-brand">
+            <div className="brand-icon">
+              <AutoAwesomeIcon className="sparkle-icon" />
+            </div>
+            <div className="brand-text">
+              <h2>Business Discovery</h2>
+              <span className="brand-tagline">Powered by AI</span>
+            </div>
+          </div>
           <ThemeToggle />
         </div>
         <ProgressBar {...progress} />
-      </div>
+      </header>
 
-      <div className="messages-container">
-        {messages.length === 0 && !isLoading && !error && (
-          <div className="empty-state">
-            <div className="spinner"></div>
-            <p>Initializing chat...</p>
+      {/* Main Content Area */}
+      <main className="survey-content">
+        {!currentQuestion && !isLoading && !error && (
+          <div className="loading-state">
+            <div className="spinner-modern"></div>
+            <p>Initializing your session...</p>
           </div>
         )}
-        
-        {messages.map((msg, index) => (
-          <Message key={index} type={msg.type} content={msg.content} />
-        ))}
-        
+
+        {!currentQuestion && !isLoading && messages.length === 0 && (
+          <div className="welcome-section">
+            <div className="welcome-icon-wrapper">
+              <div className="robot-icon">
+                <AutoAwesomeIcon className="robot-sparkle" />
+              </div>
+            </div>
+            <h3>Hey there! 👋</h3>
+            <p>
+              I'm your AI assistant ready to learn about your business. 
+              Let's discover what makes your venture unique!
+            </p>
+            <div className="feature-pills">
+              <span className="pill">
+                <AutoAwesomeIcon /> Smart Questions
+              </span>
+              <span className="pill">
+                <RocketLaunchIcon /> Quick Process
+              </span>
+            </div>
+          </div>
+        )}
+
+        {currentQuestion && !isLoading && (
+          <div className="question-section">
+            <div className="question-badge">
+              <AutoAwesomeIcon className="badge-icon" />
+              <span>Question {progress.current} of {progress.total}</span>
+            </div>
+            
+            <h3 className="question-title">{currentQuestion.text}</h3>
+
+            <QuestionInput
+              question={currentQuestion}
+              onSubmit={submitAnswer}
+              isLoading={isLoading}
+            />
+          </div>
+        )}
+
         {error && (
-          <div className="error-banner card">
-            <strong>Error:</strong> {error}
-            <br />
-            <button onClick={startNewSession} className="btn btn-primary btn-sm" style={{ marginTop: '10px' }}>
-              Retry
-            </button>
+          <div className="error-section">
+            <div className="error-icon">⚠️</div>
+            <div className="error-content">
+              <strong>Oops! Something went wrong</strong>
+              <p>{error}</p>
+              <button onClick={startNewSession} className="btn btn-secondary btn-sm">
+                Try Again
+              </button>
+            </div>
           </div>
         )}
-        
-        <div ref={messagesEndRef} />
-      </div>
+      </main>
 
-      {currentQuestion && !isLoading && (
-        <div className="input-container">
-          <QuestionInput
-            question={currentQuestion}
-            onSubmit={submitAnswer}
-            isLoading={isLoading}
-          />
-        </div>
-      )}
-
+      {/* Loading Overlay */}
       {isLoading && (
-        <div className="loading-indicator">
-          <div className="spinner"></div>
-          <p>Processing...</p>
+        <div className="loading-overlay">
+          <div className="loading-card">
+            <div className="spinner-ring">
+              <div></div>
+              <div></div>
+              <div></div>
+              <div></div>
+            </div>
+            <p className="loading-text">Processing your response...</p>
+          </div>
         </div>
       )}
     </div>

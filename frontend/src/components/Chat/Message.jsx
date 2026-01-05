@@ -1,20 +1,20 @@
 import React from 'react';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import PersonIcon from '@mui/icons-material/Person';
 import './Message.css';
 
 const Message = ({ type, content }) => {
   return (
-    <div className={`message-wrapper message-${type}`}>
+    <div className={`chat-message message-${type}`}>
       <div className="message-avatar">
         {type === 'bot' ? (
-          <SmartToyIcon style={{ fontSize: '24px' }} />
+          <AutoAwesomeIcon className="avatar-icon" />
         ) : (
-          <PersonIcon style={{ fontSize: '24px' }} />
+          <PersonIcon className="avatar-icon" />
         )}
       </div>
-      <div className="message-bubble">
-        {content}
+      <div className="message-content">
+        <p>{content}</p>
       </div>
     </div>
   );
