@@ -163,7 +163,6 @@
   box-shadow: 0 0 0 4px var(--color-primary-glow);
 }
 
-/* ===== MULTI FIELD ===== */
 /* ===== MULTI-FIELD INPUT ===== */
 .multi-field-container {
   display: grid;
@@ -227,10 +226,13 @@
   }
 }
 
-
-/* ===== RANKING ===== */
+/* ============================================
+   RANKING INPUT - ULTRA SMOOTH (Fixed)
+   ============================================ */
 .ranking-container {
   width: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 .ranking-hint {
@@ -238,12 +240,12 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  background: rgba(99, 102, 241, 0.05);
+  margin-bottom: 1rem;
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
   border-radius: var(--radius-md);
   font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-primary);
-  margin-bottom: 1rem;
+  font-weight: 500;
 }
 
 .ranking-hint svg {
@@ -254,13 +256,15 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  padding: 0.5rem;
-  border-radius: var(--radius-md);
-  transition: background var(--transition-fast);
+  padding: 0;
+  margin: 0;
+  min-height: 80px;
 }
 
 .ranking-list.dragging-over {
-  background: var(--color-primary-glow);
+  background: rgba(124, 58, 237, 0.05);
+  border-radius: var(--radius-lg);
+  padding: 0.5rem;
 }
 
 .ranking-item {
@@ -268,49 +272,72 @@
   align-items: center;
   gap: 1rem;
   padding: 1rem 1.25rem;
-  background: var(--color-background);
+  background: var(--color-surface);
   border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   cursor: grab;
-  transition: all var(--transition-fast);
   user-select: none;
-}
-
-.ranking-item:active {
-  cursor: grabbing;
+  
+  /* Optimization: Hints only, do not force transform */
+  will-change: transform, box-shadow;
+  
+  /* CRITICAL: Explicitly specify transitions to avoid 'all' catching transform */
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .ranking-item:hover {
-  border-color: var(--color-primary-light);
-  transform: scale(1.02);
-  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary);
+  background: var(--color-background);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
+/* Styles applied while dragging */
 .ranking-item.dragging {
-  opacity: 0.5;
-  transform: scale(1.05);
-  box-shadow: var(--shadow-xl);
-  border-color: var(--color-primary);
+  cursor: grabbing !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+  border-color: var(--color-primary) !important;
+  background: var(--color-surface) !important;
+  opacity: 0.95;
+  z-index: 9999;
+  /* Ensure no CSS transition interferes with drag */
+  transition: none !important;
 }
 
 .ranking-number {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 36px;
-  height: 36px;
-  background: var(--gradient-primary);
+  width: 2rem;
+  height: 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  border-radius: var(--radius-md);
-  font-size: 1rem;
+  border-radius: 50%;
   font-weight: 700;
+  font-size: 0.9375rem;
   flex-shrink: 0;
 }
 
+.ranking-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
 .drag-icon {
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-size: 1.5rem;
   flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+
+.ranking-item:hover .drag-icon {
+  color: var(--color-primary);
+}
+
+.ranking-item.dragging .drag-icon {
+  color: var(--color-primary);
 }
 
 .ranking-text {
@@ -318,6 +345,28 @@
   font-size: 1rem;
   font-weight: 500;
   color: var(--color-text-primary);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* Dark mode for Ranking */
+.dark-mode .ranking-item {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark-mode .ranking-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--color-primary);
+}
+
+.dark-mode .ranking-item.dragging {
+  background: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark-mode .ranking-list.dragging-over {
+  background: rgba(124, 58, 237, 0.1);
 }
 
 /* ===== SCALE ===== */
@@ -474,6 +523,10 @@
   animation: spin 0.8s linear infinite;
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ===== MOBILE RESPONSIVE ===== */
 @media (max-width: 768px) {
   .question-input-container {
@@ -497,16 +550,6 @@
     font-size: 0.9375rem;
   }
 
-  .ranking-item {
-    padding: 0.875rem 1rem;
-  }
-
-  .ranking-number {
-    min-width: 32px;
-    height: 32px;
-    font-size: 0.875rem;
-  }
-
   .submit-btn {
     padding: 0.875rem 1.75rem;
     font-size: 1rem;
@@ -520,6 +563,26 @@
     min-width: 42px;
     height: 42px;
     font-size: 1.125rem;
+  }
+
+  /* Ranking Mobile Optimizations */
+  .ranking-item {
+    padding: 0.875rem 1rem;
+    gap: 0.75rem;
+  }
+
+  .ranking-number {
+    width: 1.75rem;
+    height: 1.75rem;
+    font-size: 0.875rem;
+  }
+
+  .drag-icon {
+    font-size: 1.25rem;
+  }
+
+  .ranking-text {
+    font-size: 0.9375rem;
   }
 }
 
@@ -535,5 +598,27 @@
 
   .option-btn .icon {
     font-size: 1.25rem;
+  }
+}
+
+/* Touch device optimizations for Ranking */
+@media (hover: none) and (pointer: coarse) {
+  .ranking-item {
+    min-height: 56px;
+    padding: 1rem;
+  }
+  
+  .ranking-item:active {
+    background: var(--color-background);
+  }
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .ranking-item,
+  .ranking-list,
+  .drag-icon {
+    transition: none !important;
+    animation: none !important;
   }
 }

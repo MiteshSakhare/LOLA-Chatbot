@@ -1,8 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { motion, AnimatePresence } from 'framer-motion';
-
-// Icons
 import SendIcon from '@mui/icons-material/Send';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
@@ -10,192 +8,47 @@ import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-
-// Styles
 import './QuestionInput.css';
 
 // ============================================
-// CONSTANTS
+// OPTIMIZED RANKING ITEM (Zero Lag Fix)
 // ============================================
-const INPUT_TYPES = {
-  TEXT: 'text',
-  SINGLE_CHOICE: 'single_choice',
-  MULTI_CHOICE: 'multi_choice',
-  MULTI_FIELD: 'multi_field',
-  RANKING: 'ranking',
-  SCALE: 'scale',
-};
+const RankingItem = React.memo(({ item, index, provided, snapshot, isDisabled }) => {
+  
+  // MERGE STYLES: 
+  // We strictly control the transition property here. 
+  // If dragging, we force transition: 'none' so the element sticks 1:1 to the mouse.
+  const style = {
+    ...provided.draggableProps.style,
+    transition: snapshot.isDragging ? 'none' : provided.draggableProps.style?.transition,
+    cursor: isDisabled ? 'not-allowed' : 'grab',
+    // Force GPU acceleration to prevent layout shifts
+    transform: provided.draggableProps.style?.transform,
+  };
 
-const ERROR_MESSAGES = {
-  REQUIRED_FIELD: 'This field is required',
-  SELECT_OPTION: 'Please select an option',
-  SELECT_AT_LEAST_ONE: 'Please select at least one option',
-  FILL_ALL_FIELDS: 'Please fill in all fields',
-  RANK_ALL_ITEMS: 'Please rank all items',
-  RATE_ALL_ITEMS: 'Please rate all items',
-};
-
-const ANIMATION_VARIANTS = {
-  item: {
-    initial: { opacity: 0, x: -20 },
-    animate: (index) => ({
-      opacity: 1,
-      x: 0,
-      transition: { delay: index * 0.05 },
-    }),
-  },
-};
-
-// ============================================
-// SUB-COMPONENTS
-// ============================================
-const HelpText = ({ text }) => (
-  <motion.div
-    className="help-text"
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    transition={{ delay: 0.2 }}
-  >
-    <InfoOutlinedIcon />
-    <span>{text}</span>
-  </motion.div>
-);
-
-const ValidationError = ({ error }) => (
-  <AnimatePresence>
-    {error && (
-      <motion.div
-        className="validation-error"
-        initial={{ opacity: 0, height: 0 }}
-        animate={{ opacity: 1, height: 'auto' }}
-        exit={{ opacity: 0, height: 0 }}
-      >
-        {error}
-      </motion.div>
-    )}
-  </AnimatePresence>
-);
-
-const TextInput = ({ value, onChange, placeholder, disabled, helpText }) => (
-  <motion.div
-    className="input-wrapper"
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.3 }}
-  >
-    <textarea
-      className="text-input"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      disabled={disabled}
-      rows={4}
-    />
-    {helpText && <HelpText text={helpText} />}
-  </motion.div>
-);
-
-const OptionButton = ({
-  option,
-  isSelected,
-  onClick,
-  icon,
-  index,
-  disabled,
-}) => (
-  <motion.button
-    type="button"
-    className={`option-btn ${isSelected ? 'selected' : ''}`}
-    onClick={onClick}
-    disabled={disabled}
-    custom={index}
-    initial="initial"
-    animate="animate"
-    variants={ANIMATION_VARIANTS.item}
-    whileHover={{ scale: disabled ? 1 : 1.02 }}
-    whileTap={{ scale: disabled ? 1 : 0.98 }}
-  >
-    {icon}
-    <span>{option}</span>
-  </motion.button>
-);
-
-const FieldInput = ({ field, value, onChange, disabled, index }) => (
-  <motion.div
-    className="field-group"
-    custom={index}
-    initial="initial"
-    animate="animate"
-    variants={ANIMATION_VARIANTS.item}
-  >
-    <label className="field-label">{field.label}</label>
-    <input
-      type={field.type || 'text'}
-      className="field-input"
-      placeholder={field.placeholder}
-      value={value}
-      onChange={(e) => onChange(field.name, e.target.value)}
-      disabled={disabled}
-    />
-  </motion.div>
-);
-
-const RankingItem = ({ item, index, isDragging, provided, disabled }) => (
-  <motion.div
-    ref={provided.innerRef}
-    {...provided.draggableProps}
-    {...provided.dragHandleProps}
-    className={`ranking-item ${isDragging ? 'dragging' : ''}`}
-    initial={{ opacity: 0, x: -20 }}
-    animate={{ opacity: 1, x: 0 }}
-    exit={{ opacity: 0, x: 20 }}
-    transition={{ delay: index * 0.05 }}
-    layout
-  >
-    <div className="ranking-number">{index + 1}</div>
-    <DragIndicatorIcon className="drag-icon" />
-    <span className="ranking-text">{item.content}</span>
-  </motion.div>
-);
-
-const ScaleSlider = ({ field, value, onChange, disabled, index }) => (
-  <motion.div
-    className="scale-field"
-    custom={index}
-    initial="initial"
-    animate="animate"
-    variants={ANIMATION_VARIANTS.item}
-  >
-    <label className="scale-label">{field.label}</label>
-    <div className="scale-input-wrapper">
-      <span className="scale-min">{field.min || 1}</span>
-      <input
-        type="range"
-        className="scale-slider"
-        min={field.min || 1}
-        max={field.max || 10}
-        value={value}
-        onChange={(e) => onChange(field.name, e.target.value)}
-        disabled={disabled}
-      />
-      <span className="scale-max">{field.max || 10}</span>
-      <motion.span
-        className="scale-value"
-        key={value}
-        initial={{ scale: 1.2 }}
-        animate={{ scale: 1 }}
-      >
-        {value}
-      </motion.span>
+  return (
+    <div
+      ref={provided.innerRef}
+      {...provided.draggableProps}
+      {...provided.dragHandleProps}
+      className={`ranking-item ${snapshot.isDragging ? 'dragging' : ''}`}
+      style={style}
+    >
+      <div className="ranking-number">{index + 1}</div>
+      <div className="ranking-content">
+        <DragIndicatorIcon className="drag-icon" />
+        <span className="ranking-text">{item.content}</span>
+      </div>
     </div>
-  </motion.div>
-);
+  );
+});
+
+RankingItem.displayName = 'RankingItem';
 
 // ============================================
 // MAIN COMPONENT
 // ============================================
 const QuestionInput = ({ question, onSubmit, isLoading }) => {
-  // ========== STATE ==========
   const [textValue, setTextValue] = useState('');
   const [selectedOption, setSelectedOption] = useState(null);
   const [selectedOptions, setSelectedOptions] = useState([]);
@@ -205,18 +58,15 @@ const QuestionInput = ({ question, onSubmit, isLoading }) => {
   const [rankedItems, setRankedItems] = useState([]);
   const [scaleValues, setScaleValues] = useState({});
 
-  // ========== CALLBACKS ==========
-  const resetState = useCallback(() => {
+  useEffect(() => {
     setTextValue('');
     setSelectedOption(null);
     setSelectedOptions([]);
     setOtherText('');
     setFieldValues({});
     setValidationError('');
-  }, []);
 
-  const initializeRanking = useCallback(() => {
-    if (question?.input_type === INPUT_TYPES.RANKING && question?.options) {
+    if (question?.input_type === 'ranking' && question?.options) {
       setRankedItems(
         question.options.map((opt, idx) => ({
           id: `item-${idx}`,
@@ -224,266 +74,226 @@ const QuestionInput = ({ question, onSubmit, isLoading }) => {
         }))
       );
     }
-  }, [question]);
 
-  const initializeMultiField = useCallback(() => {
-    if (question?.input_type === INPUT_TYPES.MULTI_FIELD && question?.fields) {
+    if (question?.input_type === 'multi_field' && question?.fields) {
       const initialFields = {};
       question.fields.forEach((field) => {
         initialFields[field.name] = '';
       });
       setFieldValues(initialFields);
     }
-  }, [question]);
 
-  const initializeScale = useCallback(() => {
-    if (question?.input_type === INPUT_TYPES.SCALE && question?.fields) {
+    if (question?.input_type === 'scale' && question?.fields) {
       const initialScale = {};
       question.fields.forEach((field) => {
         initialScale[field.name] = field.min || 1;
       });
       setScaleValues(initialScale);
     }
-  }, [question]);
+  }, [question?.id]);
 
-  const validateAnswer = useCallback((answer) => {
-    if (!question.required) return true;
+  const handleSubmit = (e) => {
+    if (e) e.preventDefault();
+    setValidationError('');
 
+    let answer;
     switch (question.input_type) {
-      case INPUT_TYPES.TEXT:
-        if (!answer) {
-          setValidationError(ERROR_MESSAGES.REQUIRED_FIELD);
-          return false;
+      case 'text':
+        answer = textValue.trim();
+        if (!answer && question.required) {
+          setValidationError('This field is required');
+          return;
         }
         break;
 
-      case INPUT_TYPES.SINGLE_CHOICE:
-        if (!answer) {
-          setValidationError(ERROR_MESSAGES.SELECT_OPTION);
-          return false;
+      case 'single_choice':
+        answer = selectedOption;
+        if (!answer && question.required) {
+          setValidationError('Please select an option');
+          return;
         }
         break;
 
-      case INPUT_TYPES.MULTI_CHOICE:
-        if (answer.length === 0) {
-          setValidationError(ERROR_MESSAGES.SELECT_AT_LEAST_ONE);
-          return false;
-        }
-        break;
-
-      case INPUT_TYPES.MULTI_FIELD:
-        const emptyFields = Object.entries(answer).filter(
-          ([_, value]) => !value.trim()
-        );
-        if (emptyFields.length > 0) {
-          setValidationError(ERROR_MESSAGES.FILL_ALL_FIELDS);
-          return false;
-        }
-        break;
-
-      case INPUT_TYPES.RANKING:
-        if (answer.length === 0) {
-          setValidationError(ERROR_MESSAGES.RANK_ALL_ITEMS);
-          return false;
-        }
-        break;
-
-      case INPUT_TYPES.SCALE:
-        const missingFields = question.fields.filter(
-          (field) => !answer[field.name]
-        );
-        if (missingFields.length > 0) {
-          setValidationError(ERROR_MESSAGES.RATE_ALL_ITEMS);
-          return false;
-        }
-        break;
-
-      default:
-        break;
-    }
-
-    return true;
-  }, [question]);
-
-  const prepareAnswer = useCallback(() => {
-    switch (question.input_type) {
-      case INPUT_TYPES.TEXT:
-        return textValue.trim();
-
-      case INPUT_TYPES.SINGLE_CHOICE:
-        return selectedOption;
-
-      case INPUT_TYPES.MULTI_CHOICE:
-        let answer = selectedOptions;
+      case 'multi_choice':
+        answer = selectedOptions;
         if (selectedOptions.includes('Other') && otherText.trim()) {
           answer = [
             ...selectedOptions.filter((o) => o !== 'Other'),
             `Other: ${otherText.trim()}`,
           ];
         }
-        return answer;
+        if (answer.length === 0 && question.required) {
+          setValidationError('Please select at least one option');
+          return;
+        }
+        break;
 
-      case INPUT_TYPES.MULTI_FIELD:
-        return fieldValues;
+      case 'multi_field':
+        answer = fieldValues;
+        if (question.required) {
+          const emptyFields = Object.entries(fieldValues).filter(
+            ([_, value]) => !value.trim()
+          );
+          if (emptyFields.length > 0) {
+            setValidationError('Please fill in all fields');
+            return;
+          }
+        }
+        break;
 
-      case INPUT_TYPES.RANKING:
-        return rankedItems.map((item) => item.content);
+      case 'ranking':
+        answer = rankedItems.map((item) => item.content);
+        if (question.required && answer.length === 0) {
+          setValidationError('Please rank all items');
+          return;
+        }
+        break;
 
-      case INPUT_TYPES.SCALE:
-        return scaleValues;
+      case 'scale':
+        answer = scaleValues;
+        if (question.required) {
+          const missingFields = question.fields.filter(
+            (field) => !scaleValues[field.name]
+          );
+          if (missingFields.length > 0) {
+            setValidationError('Please rate all items');
+            return;
+          }
+        }
+        break;
 
       default:
-        return textValue.trim();
+        answer = textValue.trim();
     }
-  }, [
-    question,
-    textValue,
-    selectedOption,
-    selectedOptions,
-    otherText,
-    fieldValues,
-    rankedItems,
-    scaleValues,
-  ]);
 
-  const handleSubmit = useCallback(
-    (e) => {
-      if (e) e.preventDefault();
-      setValidationError('');
+    onSubmit(question.id, answer);
+  };
 
-      const answer = prepareAnswer();
-
-      if (validateAnswer(answer)) {
-        onSubmit(question.id, answer);
-      }
-    },
-    [question, prepareAnswer, validateAnswer, onSubmit]
-  );
-
-  const handleMultiChoiceToggle = useCallback((option) => {
+  const handleMultiChoiceToggle = (option) => {
     setSelectedOptions((prev) =>
       prev.includes(option)
         ? prev.filter((o) => o !== option)
         : [...prev, option]
     );
-  }, []);
+  };
 
-  const handleFieldChange = useCallback((fieldName, value) => {
+  const handleFieldChange = (fieldName, value) => {
     setFieldValues((prev) => ({ ...prev, [fieldName]: value }));
-  }, []);
+  };
 
-  const handleScaleChange = useCallback((fieldName, value) => {
+  const handleScaleChange = (fieldName, value) => {
     setScaleValues((prev) => ({ ...prev, [fieldName]: parseInt(value) }));
-  }, []);
+  };
 
-  const handleDragEnd = useCallback((result) => {
+  const onDragEnd = (result) => {
     if (!result.destination) return;
 
-    setRankedItems((items) => {
-      const newItems = Array.from(items);
-      const [reorderedItem] = newItems.splice(result.source.index, 1);
-      newItems.splice(result.destination.index, 0, reorderedItem);
-      return newItems;
-    });
-  }, []);
+    const items = Array.from(rankedItems);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
 
-  // ========== COMPUTED VALUES ==========
-  const isSubmitDisabled = useMemo(() => {
+    setRankedItems(items);
+  };
+
+  const isSubmitDisabled = () => {
     if (isLoading) return true;
 
-    if (!question?.required) return false;
-
     switch (question?.input_type) {
-      case INPUT_TYPES.TEXT:
-        return !textValue.trim();
-      case INPUT_TYPES.SINGLE_CHOICE:
-        return !selectedOption;
-      case INPUT_TYPES.MULTI_CHOICE:
-        return selectedOptions.length === 0;
-      case INPUT_TYPES.MULTI_FIELD:
+      case 'text':
+        return !textValue.trim() && question.required;
+      case 'single_choice':
+        return !selectedOption && question.required;
+      case 'multi_choice':
+        return selectedOptions.length === 0 && question.required;
+      case 'multi_field':
+        if (!question.required) return false;
         return Object.values(fieldValues).some((val) => !val.trim());
-      case INPUT_TYPES.RANKING:
-        return rankedItems.length === 0;
-      case INPUT_TYPES.SCALE:
+      case 'ranking':
+        return rankedItems.length === 0 && question.required;
+      case 'scale':
+        if (!question.required) return false;
         return question.fields.some((field) => !scaleValues[field.name]);
       default:
         return false;
     }
-  }, [
-    isLoading,
-    question,
-    textValue,
-    selectedOption,
-    selectedOptions,
-    fieldValues,
-    rankedItems,
-    scaleValues,
-  ]);
+  };
 
-  // ========== EFFECTS ==========
-  useEffect(() => {
-    resetState();
-    initializeRanking();
-    initializeMultiField();
-    initializeScale();
-  }, [question?.id, resetState, initializeRanking, initializeMultiField, initializeScale]);
-
-  // ========== RENDER FUNCTIONS ==========
   const renderInput = () => {
     switch (question?.input_type) {
-      case INPUT_TYPES.TEXT:
+      case 'text':
         return (
-          <TextInput
-            value={textValue}
-            onChange={setTextValue}
-            placeholder="Type your answer here..."
-            disabled={isLoading}
-            helpText={question.help_text}
-          />
+          <motion.div
+            className="input-wrapper"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <textarea
+              className="text-input"
+              value={textValue}
+              onChange={(e) => setTextValue(e.target.value)}
+              placeholder="Type your answer here..."
+              disabled={isLoading}
+              rows={4}
+            />
+            {question.help_text && (
+              <div className="help-text">
+                <InfoOutlinedIcon />
+                <span>{question.help_text}</span>
+              </div>
+            )}
+          </motion.div>
         );
 
-      case INPUT_TYPES.SINGLE_CHOICE:
+      case 'single_choice':
         return (
           <div className="options-container">
             {question.options?.map((option, index) => (
-              <OptionButton
+              <motion.button
                 key={option}
-                option={option}
-                isSelected={selectedOption === option}
+                type="button"
+                className={`option-btn ${selectedOption === option ? 'selected' : ''}`}
                 onClick={() => setSelectedOption(option)}
-                icon={
-                  selectedOption === option ? (
-                    <RadioButtonCheckedIcon className="icon" />
-                  ) : (
-                    <RadioButtonUncheckedIcon className="icon" />
-                  )
-                }
-                index={index}
                 disabled={isLoading}
-              />
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                {selectedOption === option ? (
+                  <RadioButtonCheckedIcon className="icon" />
+                ) : (
+                  <RadioButtonUncheckedIcon className="icon" />
+                )}
+                <span>{option}</span>
+              </motion.button>
             ))}
           </div>
         );
 
-      case INPUT_TYPES.MULTI_CHOICE:
+      case 'multi_choice':
         return (
           <div className="options-container">
             {question.options?.map((option, index) => (
-              <OptionButton
+              <motion.button
                 key={option}
-                option={option}
-                isSelected={selectedOptions.includes(option)}
+                type="button"
+                className={`option-btn ${selectedOptions.includes(option) ? 'selected' : ''}`}
                 onClick={() => handleMultiChoiceToggle(option)}
-                icon={
-                  selectedOptions.includes(option) ? (
-                    <CheckBoxIcon className="icon" />
-                  ) : (
-                    <CheckBoxOutlineBlankIcon className="icon" />
-                  )
-                }
-                index={index}
                 disabled={isLoading}
-              />
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                {selectedOptions.includes(option) ? (
+                  <CheckBoxIcon className="icon" />
+                ) : (
+                  <CheckBoxOutlineBlankIcon className="icon" />
+                )}
+                <span>{option}</span>
+              </motion.button>
             ))}
             {selectedOptions.includes('Other') && question.allow_other && (
               <motion.input
@@ -501,7 +311,7 @@ const QuestionInput = ({ question, onSubmit, isLoading }) => {
           </div>
         );
 
-      case INPUT_TYPES.MULTI_FIELD:
+      case 'multi_field':
         return (
           <motion.div
             className="multi-field-container"
@@ -509,58 +319,59 @@ const QuestionInput = ({ question, onSubmit, isLoading }) => {
             animate={{ opacity: 1, y: 0 }}
           >
             {question.fields?.map((field, index) => (
-              <FieldInput
+              <motion.div
                 key={field.name}
-                field={field}
-                value={fieldValues[field.name] || ''}
-                onChange={handleFieldChange}
-                disabled={isLoading}
-                index={index}
-              />
+                className="field-group"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 }}
+              >
+                <label className="field-label">{field.label}</label>
+                <input
+                  type={field.type || 'text'}
+                  className="field-input"
+                  placeholder={field.placeholder}
+                  value={fieldValues[field.name] || ''}
+                  onChange={(e) => handleFieldChange(field.name, e.target.value)}
+                  disabled={isLoading}
+                />
+              </motion.div>
             ))}
           </motion.div>
         );
 
-      case INPUT_TYPES.RANKING:
+      case 'ranking':
         return (
           <div className="ranking-container">
-            <motion.p
-              className="ranking-hint"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-            >
+            <p className="ranking-hint">
               <DragIndicatorIcon /> Drag to reorder (1 = highest priority)
-            </motion.p>
-            <DragDropContext onDragEnd={handleDragEnd}>
+            </p>
+            <DragDropContext onDragEnd={onDragEnd}>
               <Droppable droppableId="ranking-list">
                 {(provided, snapshot) => (
                   <div
                     {...provided.droppableProps}
                     ref={provided.innerRef}
-                    className={`ranking-list ${
-                      snapshot.isDraggingOver ? 'dragging-over' : ''
-                    }`}
+                    className={`ranking-list ${snapshot.isDraggingOver ? 'dragging-over' : ''}`}
                   >
-                    <AnimatePresence>
-                      {rankedItems.map((item, index) => (
-                        <Draggable
-                          key={item.id}
-                          draggableId={item.id}
-                          index={index}
-                          isDragDisabled={isLoading}
-                        >
-                          {(provided, snapshot) => (
-                            <RankingItem
-                              item={item}
-                              index={index}
-                              isDragging={snapshot.isDragging}
-                              provided={provided}
-                              disabled={isLoading}
-                            />
-                          )}
-                        </Draggable>
-                      ))}
-                    </AnimatePresence>
+                    {rankedItems.map((item, index) => (
+                      <Draggable
+                        key={item.id}
+                        draggableId={item.id}
+                        index={index}
+                        isDragDisabled={isLoading}
+                      >
+                        {(provided, snapshot) => (
+                          <RankingItem
+                            item={item}
+                            index={index}
+                            provided={provided}
+                            snapshot={snapshot}
+                            isDisabled={isLoading}
+                          />
+                        )}
+                      </Draggable>
+                    ))}
                     {provided.placeholder}
                   </div>
                 )}
@@ -569,7 +380,7 @@ const QuestionInput = ({ question, onSubmit, isLoading }) => {
           </div>
         );
 
-      case INPUT_TYPES.SCALE:
+      case 'scale':
         return (
           <motion.div
             className="scale-container"
@@ -577,14 +388,36 @@ const QuestionInput = ({ question, onSubmit, isLoading }) => {
             animate={{ opacity: 1, y: 0 }}
           >
             {question.fields?.map((field, index) => (
-              <ScaleSlider
+              <motion.div
                 key={field.name}
-                field={field}
-                value={scaleValues[field.name] || field.min || 1}
-                onChange={handleScaleChange}
-                disabled={isLoading}
-                index={index}
-              />
+                className="scale-field"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 }}
+              >
+                <label className="scale-label">{field.label}</label>
+                <div className="scale-input-wrapper">
+                  <span className="scale-min">{field.min || 1}</span>
+                  <input
+                    type="range"
+                    className="scale-slider"
+                    min={field.min || 1}
+                    max={field.max || 10}
+                    value={scaleValues[field.name] || field.min || 1}
+                    onChange={(e) => handleScaleChange(field.name, e.target.value)}
+                    disabled={isLoading}
+                  />
+                  <span className="scale-max">{field.max || 10}</span>
+                  <motion.span
+                    className="scale-value"
+                    key={scaleValues[field.name]}
+                    initial={{ scale: 1.2 }}
+                    animate={{ scale: 1 }}
+                  >
+                    {scaleValues[field.name] || field.min || 1}
+                  </motion.span>
+                </div>
+              </motion.div>
             ))}
           </motion.div>
         );
@@ -594,19 +427,29 @@ const QuestionInput = ({ question, onSubmit, isLoading }) => {
     }
   };
 
-  // ========== MAIN RENDER ==========
   return (
     <form onSubmit={handleSubmit} className="question-input-container">
       {renderInput()}
 
-      <ValidationError error={validationError} />
+      <AnimatePresence>
+        {validationError && (
+          <motion.div
+            className="validation-error"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+          >
+            {validationError}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <motion.button
         type="submit"
         className="submit-btn"
-        disabled={isSubmitDisabled}
-        whileHover={{ scale: isSubmitDisabled ? 1 : 1.02 }}
-        whileTap={{ scale: isSubmitDisabled ? 1 : 0.98 }}
+        disabled={isSubmitDisabled()}
+        whileHover={{ scale: isSubmitDisabled() ? 1 : 1.02 }}
+        whileTap={{ scale: isSubmitDisabled() ? 1 : 0.98 }}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}

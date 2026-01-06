@@ -234,6 +234,7 @@
   margin: 0;
 }
 
+/* OLD JSON STYLE (Deprecate if unused, or keep for fallback) */
 .answer-json {
   background: var(--color-background);
   padding: 1.25rem;
@@ -245,6 +246,47 @@
   color: var(--color-text-primary);
   line-height: 1.6;
 }
+
+/* ===== NEW PRETTY JSON STYLES ===== */
+.formatted-json-answer {
+  background: var(--color-background);
+  padding: 1.25rem;
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--color-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.json-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: baseline;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px dashed var(--color-border);
+}
+
+.json-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.json-key {
+  font-weight: 700;
+  color: var(--color-primary);
+  text-transform: capitalize;
+  font-size: 0.9375rem;
+  min-width: 140px;
+}
+
+.json-value {
+  color: var(--color-text-primary);
+  font-size: 1rem;
+  flex: 1;
+}
+
+/* ================================== */
 
 .answer-timestamp {
   font-size: 0.8125rem;

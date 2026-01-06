@@ -59,23 +59,12 @@ const formatStatus = (status) => {
 
 const isJsonString = (str) => {
   try {
-    JSON.parse(str);
-    return true;
-  } catch (e) {
-    return false;
-  }
-};
-
-const formatAnswer = (answer) => {
-  if (answer === null || answer === undefined) return 'No answer';
-  
-  if (typeof answer === 'object') {
-    return JSON.stringify(answer, null, 2);
-  }
-  if (typeof answer === 'string' && isJsonString(answer)) {
-    return JSON.stringify(JSON.parse(answer), null, 2);
-  }
-  return String(answer);
+    const o = JSON.parse(str);
+    if (o && typeof o === "object") {
+      return true;
+    }
+  } catch (e) { }
+  return false;
 };
 
 // ============================================
@@ -124,10 +113,56 @@ const InfoItem = ({ label, value, isSpecial = false }) => (
 );
 
 const AnswerCard = ({ answer, index }) => {
-  const isJson = useMemo(
-    () => typeof answer.answer === 'object',
-    [answer.answer]
-  );
+  // Determine which field holds the value
+  const rawValue = answer.answer ?? answer.response ?? answer.value ?? answer.text_answer ?? answer.answer_text;
+
+  // Helper to render content based on type
+  const renderContent = () => {
+    if (rawValue === null || rawValue === undefined) return 'No answer';
+
+    // 1. If it's a JSON string, parse it
+    let parsedValue = rawValue;
+    let isJson = false;
+
+    if (typeof rawValue === 'string' && isJsonString(rawValue)) {
+      parsedValue = JSON.parse(rawValue);
+      isJson = true;
+    } else if (typeof rawValue === 'object') {
+      isJson = true;
+    }
+
+    // 2. Render Object/JSON nicely
+    if (isJson && typeof parsedValue === 'object' && parsedValue !== null) {
+      // If it's an Array (like a Ranking question)
+      if (Array.isArray(parsedValue)) {
+        return (
+          <div className="formatted-json-answer">
+            {parsedValue.map((item, i) => (
+              <div key={i} className="json-item">
+                <span className="json-key">#{i + 1}</span>
+                <span className="json-value">{String(item)}</span>
+              </div>
+            ))}
+          </div>
+        );
+      }
+      
+      // If it's an Object (like a Multi-field question)
+      return (
+        <div className="formatted-json-answer">
+          {Object.entries(parsedValue).map(([key, value]) => (
+            <div key={key} className="json-item">
+              <span className="json-key">{key.replace(/_/g, ' ')}:</span>
+              <span className="json-value">{String(value)}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // 3. Render Standard Text
+    return <p>{String(rawValue)}</p>;
+  };
 
   return (
     <motion.div
@@ -151,7 +186,7 @@ const AnswerCard = ({ answer, index }) => {
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: index * 0.05 + 0.1 }}
         >
-          {answer.question_text || 'Question not available'}
+          {answer.question_text || `Question ${index + 1}`}
         </motion.h4>
 
         <motion.div
@@ -160,21 +195,17 @@ const AnswerCard = ({ answer, index }) => {
           animate={{ opacity: 1 }}
           transition={{ delay: index * 0.05 + 0.2 }}
         >
-          {isJson ? (
-            <pre className="answer-json">{formatAnswer(answer.answer)}</pre>
-          ) : (
-            <p>{formatAnswer(answer.answer)}</p>
-          )}
+          {renderContent()}
         </motion.div>
 
-        {answer.answered_at && (
+        {(answer.answered_at || answer.created_at) && (
           <motion.div
             className="answer-timestamp"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: index * 0.05 + 0.3 }}
           >
-            {formatDate(answer.answered_at)}
+            {formatDate(answer.answered_at || answer.created_at)}
           </motion.div>
         )}
       </div>
@@ -194,45 +225,63 @@ const ResponseDetail = () => {
   const [response, setResponse] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // ========== CALLBACKS ==========
+  // ========== LOAD DATA ==========
   const loadResponse = useCallback(async () => {
     setIsLoading(true);
     try {
+      // Check if sessionId exists
+      if (!sessionId && sessionId !== 0) {
+        throw new Error("Invalid Session ID");
+      }
+
+      // Try fetching by ID (adjust endpoint if needed)
+      // Note: Using a generic endpoint pattern. Replace with exact API route if different.
       const res = await axios.get(`${API_BASE}/admin/response/${sessionId}`);
+      
+      console.log('📊 API Response Data:', res.data);
       setResponse(res.data);
       toast.success('Response loaded successfully');
     } catch (error) {
       console.error('Failed to load response:', error);
-      toast.error(error.response?.data?.error || 'Failed to load response');
+      toast.error('Failed to load response details');
       navigate('/admin');
     } finally {
       setIsLoading(false);
     }
   }, [sessionId, navigate]);
 
-  const handleExport = useCallback(async () => {
-    const exportPromise = axios
-      .get(`${API_BASE}/admin/response/${sessionId}/export`, {
-        responseType: 'blob',
-      })
-      .then((res) => {
-        const blob = res.data;
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `response_${sessionId}_${
-          new Date().toISOString().split('T')[0]
-        }.json`;
-        a.click();
-        window.URL.revokeObjectURL(url);
-      });
+  // ========== CLIENT-SIDE EXPORT ==========
+  const handleExport = useCallback(() => {
+    if (!response) {
+      toast.error("No data to export");
+      return;
+    }
 
-    toast.promise(exportPromise, {
-      loading: 'Exporting response...',
-      success: 'Response exported! 📥',
-      error: 'Export failed',
-    });
-  }, [sessionId]);
+    try {
+      // 1. Create a clean JSON string from the current state
+      const jsonString = JSON.stringify(response, null, 2);
+      
+      // 2. Create a Blob
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      
+      // 3. Create a link and trigger download
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `response_${response.session_id || sessionId}_export.json`;
+      document.body.appendChild(a);
+      a.click();
+      
+      // 4. Cleanup
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast.success('Response exported! 📥');
+    } catch (err) {
+      console.error("Export Error:", err);
+      toast.error("Failed to export JSON");
+    }
+  }, [response, sessionId]);
 
   const handleBack = useCallback(() => {
     navigate('/admin');
@@ -245,19 +294,21 @@ const ResponseDetail = () => {
 
   // ========== COMPUTED VALUES ==========
   const statusBadge = useMemo(() => {
-    if (!response?.status) return <span className="status-badge">Unknown</span>;
+    // Handle nested session object if it exists (common API pattern)
+    const status = response?.session?.status || response?.status;
     
-    const statusClass =
-      response.status === 'completed' ? 'status-completed' : 'status-in-progress';
+    if (!status) return <span className="status-badge">Unknown</span>;
+    
+    const statusClass = status === 'completed' ? 'status-completed' : 'status-in-progress';
 
     return (
       <span className={`status-badge ${statusClass}`}>
-        {response.status === 'completed' ? (
+        {status === 'completed' ? (
           <CheckCircleIcon style={{ fontSize: '1rem' }} />
         ) : (
           <HourglassEmptyIcon style={{ fontSize: '1rem' }} />
         )}
-        {formatStatus(response.status)}
+        {formatStatus(status)}
       </span>
     );
   }, [response]);
@@ -274,6 +325,12 @@ const ResponseDetail = () => {
   if (!response) {
     return null;
   }
+
+  // Handle data structure variations (Direct object vs Nested in 'session')
+  const displaySessionId = response.session?.id || response.session_id || response.id;
+  const displayDate = response.session?.created_at || response.created_at;
+  // Ensure we are grabbing the array. Check 'answers' first.
+  const displayAnswers = response.answers || [];
 
   return (
     <div className="response-detail">
@@ -320,19 +377,19 @@ const ResponseDetail = () => {
           <div className="info-grid">
             <InfoItem 
               label="Session ID" 
-              value={response.session_id || 'N/A'} 
+              value={displaySessionId || 'N/A'} 
               isSpecial 
             />
             <InfoItem label="Status" value={statusBadge} />
             <InfoItem
               label="Created"
-              value={formatDate(response.created_at)}
+              value={formatDate(displayDate)}
             />
             <InfoItem
               label="Total Answers"
               value={
                 <span className="answer-count">
-                  {response.answers?.length || 0}
+                  {displayAnswers.length}
                 </span>
               }
             />
@@ -343,16 +400,16 @@ const ResponseDetail = () => {
         <div className="answers-section">
           <div className="section-header">
             <QuestionAnswerIcon />
-            <h3>Responses ({response.answers?.length || 0})</h3>
+            <h3>Responses ({displayAnswers.length})</h3>
           </div>
 
-          {response.answers && response.answers.length > 0 ? (
+          {displayAnswers.length > 0 ? (
             <motion.div
               className="answers-list"
               variants={ANIMATION_VARIANTS.container}
             >
               <AnimatePresence>
-                {response.answers.map((answer, index) => (
+                {displayAnswers.map((answer, index) => (
                   <AnswerCard 
                     key={answer.id || index} 
                     answer={answer} 
