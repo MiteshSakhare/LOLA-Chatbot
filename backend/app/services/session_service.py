@@ -1,171 +1,264 @@
+"""
+Session service for managing question flow
+Enhanced with conditional logic support
+"""
 import json
-import uuid
-from typing import Dict, Any, Optional, List
-from app.models import Session, Answer, Database
-from app.services.validation_service import ValidationService
+from datetime import datetime
+from typing import Optional, Dict, Any, List
 
 class SessionService:
-    """Business logic for session management"""
+    def __init__(self, flow_config: dict, session_model, answer_model):
+        self.flow_config = flow_config
+        self.session_model = session_model
+        self.answer_model = answer_model
+        self.nodes_dict = {node['id']: node for node in flow_config['nodes']}
     
-    def __init__(self, db: Database, flow_config: Dict[str, Any]):
-        self.db = db
-        self.session_model = Session(db)
-        self.answer_model = Answer(db)
-        self.validation = ValidationService(flow_config)
-        self.questions = sorted(flow_config['questions'], key=lambda q: q['order'])
-        # In-memory storage for incomplete sessions
-        self.pending_answers = {}
-        # Store session metadata temporarily
-        self.pending_sessions = {}
-    
-    def start_session(self, ip_address: str, user_agent: str) -> Dict[str, Any]:
-        """Start a new session and return first question WITHOUT creating DB record yet"""
+    def start_session(self, client_info: dict) -> dict:
+        """Start a new session"""
+        import uuid
+        
+        # Generate session ID
         session_id = str(uuid.uuid4())
         
-        # Store session metadata in memory (don't create in DB yet)
-        self.pending_sessions[session_id] = {
-            'ip_address': ip_address,
-            'user_agent': user_agent
-        }
+        # Create session using your model's signature
+        session = self.session_model.create(
+            session_id=session_id,
+            ip_address=client_info.get('ip_address', 'unknown'),
+            user_agent=client_info.get('user_agent', 'unknown')
+        )
         
-        # Initialize pending answers storage
-        self.pending_answers[session_id] = {}
-        
-        first_question = self.questions[0]
+        # Get first question
+        first_node_id = self.flow_config['nodes'][0]['id']
+        first_question = self._get_question_node(first_node_id)
         
         return {
             'session_id': session_id,
             'question': self._format_question(first_question),
-            'progress': {'current': 1, 'total': len(self.questions), 'percentage': 0}
+            'progress': self._calculate_progress(session_id)
         }
     
-    def submit_answer(self, session_id: str, question_id: str, answer: Any) -> Dict[str, Any]:
-        """Submit an answer and get next question or summary"""
-        # Check if session exists in DB
-        session = self.session_model.get(session_id)
+    def submit_answer(self, session_id: str, question_id: str, answer: Any) -> dict:
+        """
+        Submit an answer and get next question
         
-        # If this is the first answer, create the session in DB now
+        Args:
+            session_id: Session ID
+            question_id: Current question ID
+            answer: User's answer (can be str, list, dict depending on input_type)
+            
+        Returns:
+            dict: Next question and progress, or completion status
+        """
+        # Validate session
+        session = self.session_model.get(session_id)
         if not session:
-            if session_id in self.pending_sessions:
-                # Get stored metadata
-                metadata = self.pending_sessions[session_id]
-                self.session_model.create(
-                    session_id, 
-                    metadata['ip_address'], 
-                    metadata['user_agent']
-                )
-                session = self.session_model.get(session_id)
-            else:
-                return {'error': 'Session not found'}, 404
+            raise ValueError("Invalid session")
         
         if session['status'] == 'completed':
-            return {'error': 'Session already completed'}, 400
+            raise ValueError("Session already completed")
         
-        # Sanitize and validate
-        answer = self.validation.sanitize_answer(answer)
-        is_valid, error_msg = self.validation.validate_answer(question_id, answer)
+        # Get current question node
+        current_node = self.nodes_dict.get(question_id)
+        if not current_node or current_node['type'] != 'question':
+            raise ValueError("Invalid question")
         
-        if not is_valid:
-            return {'error': error_msg}, 400
+        # Save answer
+        answer_text = self._serialize_answer(answer, current_node.get('input_type'))
+        self.answer_model.save(  # ✅ FIXED! Changed from .create() to .save()
+            session_id=session_id,
+            question_id=question_id,
+            answer_text=answer_text
+        )
         
-        # Store answer in memory (not in DB yet)
-        answer_text = json.dumps(answer) if isinstance(answer, list) else str(answer)
+        # Determine next node
+        next_node_id = self._get_next_node(current_node, answer, session_id)
         
-        if session_id not in self.pending_answers:
-            self.pending_answers[session_id] = {}
-        
-        self.pending_answers[session_id][question_id] = answer_text
-        self.session_model.touch(session_id)
+        # Check if we've reached the end
+        if next_node_id == 'end':
+            self.session_model.update_status(session_id, 'completed')
+            return {
+                'completed': True,
+                'message': self.nodes_dict.get('end', {}).get('message', 'Thank you!')
+            }
         
         # Get next question
-        current_index = next((i for i, q in enumerate(self.questions) if q['id'] == question_id), -1)
+        next_node = self.nodes_dict.get(next_node_id)
         
-        if current_index == -1:
-            return {'error': 'Invalid question ID'}, 400
+        # Handle conditional nodes (may need to skip through them)
+        while next_node and next_node['type'] == 'conditional':
+            next_node_id = self._evaluate_conditional(next_node, session_id)
+            next_node = self.nodes_dict.get(next_node_id)
         
-        if current_index + 1 < len(self.questions):
-            # Return next question
-            next_question = self.questions[current_index + 1]
-            return {
-                'session_id': session_id,
-                'question': self._format_question(next_question),
-                'progress': self._get_progress_from_memory(session_id)
-            }, 200
-        else:
-            # Last question - NOW save all answers to DB
-            self._save_all_answers_to_db(session_id)
+        if not next_node or next_node['type'] != 'question':
+            # End of flow
             self.session_model.update_status(session_id, 'completed')
-            
-            # Clear from memory
-            if session_id in self.pending_answers:
-                del self.pending_answers[session_id]
-            if session_id in self.pending_sessions:
-                del self.pending_sessions[session_id]
-            
             return {
-                'session_id': session_id,
                 'completed': True,
-                'summary': self.get_summary(session_id),
-                'progress': {'current': len(self.questions), 'total': len(self.questions), 'percentage': 100}
-            }, 200
+                'message': 'Thank you for completing the questionnaire!'
+            }
+        
+        return {
+            'question': self._format_question(next_node),
+            'progress': self._calculate_progress(session_id),
+            'completed': False
+        }
     
-    def _save_all_answers_to_db(self, session_id: str):
-        """Save all pending answers to database"""
-        if session_id in self.pending_answers:
-            for question_id, answer_text in self.pending_answers[session_id].items():
-                self.answer_model.save(session_id, question_id, answer_text)
+    def _get_next_node(self, current_node: dict, answer: Any, session_id: str) -> str:
+        """Determine the next node based on current node and answer"""
+        next_id = current_node.get('next')
+        
+        if not next_id:
+            return 'end'
+        
+        # If next is conditional, evaluate it
+        next_node = self.nodes_dict.get(next_id)
+        if next_node and next_node['type'] == 'conditional':
+            return self._evaluate_conditional(next_node, session_id)
+        
+        return next_id
     
-    def get_summary(self, session_id: str) -> Dict[str, Any]:
-        """Get full response summary for a session"""
+    def _evaluate_conditional(self, conditional_node: dict, session_id: str) -> str:
+        """
+        Evaluate a conditional node
+        
+        Args:
+            conditional_node: Conditional node configuration
+            session_id: Current session ID
+            
+        Returns:
+            str: Next node ID (if_true or if_false)
+        """
+        condition = conditional_node.get('condition', {})
+        check_type = condition.get('check_type')
+        
+        # Handle different condition types
+        if check_type == 'has_answer':
+            # Check if a specific question was answered
+            question_id = condition.get('question_id')
+            answer = self._get_answer(session_id, question_id)
+            result = answer is not None and answer != ''
+        
+        elif check_type == 'first_rank':
+            # Check if a specific option is ranked first
+            question_id = condition.get('question_id')
+            value = condition.get('value')
+            answer = self._get_answer(session_id, question_id)
+            
+            # Parse ranking answer
+            if answer:
+                try:
+                    # Answer stored as "1. Option1, 2. Option2, ..."
+                    first_item = answer.split(',')[0].split('. ', 1)[1] if '. ' in answer else answer
+                    result = value in first_item
+                except:
+                    result = False
+            else:
+                result = False
+        
+        elif check_type == 'shopify_connected':
+            # Check if Shopify is connected (you'll need to implement this)
+            # For now, default to False
+            result = False
+        
+        elif check_type == 'contains':
+            # Check if answer contains specific value
+            question_id = condition.get('question_id')
+            value = condition.get('value')
+            answer = self._get_answer(session_id, question_id)
+            result = value in str(answer) if answer else False
+        
+        else:
+            # Default to false if unknown condition type
+            result = False
+        
+        return conditional_node['if_true'] if result else conditional_node['if_false']
+    
+    def _get_answer(self, session_id: str, question_id: str) -> Optional[str]:
+        """Get a previously submitted answer"""
+        answers = self.answer_model.get_by_session(session_id)
+        for ans in answers:
+            if ans['question_id'] == question_id:
+                return ans['answer_text']
+        return None
+    
+    def _serialize_answer(self, answer: Any, input_type: str) -> str:
+        """Convert answer to storable string format"""
+        if answer is None:
+            return ''
+        
+        if input_type == 'multi_choice':
+            if isinstance(answer, list):
+                return ', '.join(answer)
+        
+        elif input_type == 'ranking':
+            if isinstance(answer, list):
+                return ', '.join([f"{i+1}. {item}" for i, item in enumerate(answer)])
+        
+        elif input_type in ['multi_field', 'scale']:
+            if isinstance(answer, dict):
+                return json.dumps(answer)
+        
+        return str(answer)
+    
+    def _format_question(self, node: dict) -> dict:
+        """Format question node for API response"""
+        return {
+            'id': node['id'],
+            'text': node['text'],
+            'input_type': node.get('input_type', 'text'),
+            'options': node.get('options', []),
+            'fields': node.get('fields', []),
+            'required': node.get('required', False),
+            'help_text': node.get('help_text'),
+            'placeholder': node.get('placeholder'),
+            'allow_other': node.get('allow_other', False),
+            'validation': node.get('validation', {})
+        }
+    
+    def _get_question_node(self, node_id: str) -> Optional[dict]:
+        """Get a question node by ID"""
+        return self.nodes_dict.get(node_id)
+    
+    def _calculate_progress(self, session_id: str) -> dict:
+        """Calculate session progress"""
+        # Count total question nodes
+        total_questions = sum(1 for node in self.flow_config['nodes'] 
+                             if node['type'] == 'question')
+        
+        # Count answered questions
+        answered = len(self.answer_model.get_by_session(session_id))
+        
+        percentage = int((answered / total_questions) * 100) if total_questions > 0 else 0
+        
+        return {
+            'current': answered,
+            'total': total_questions,
+            'percentage': percentage
+        }
+    
+    def get_summary(self, session_id: str) -> dict:
+        """Get session summary with all Q&A"""
         session = self.session_model.get(session_id)
         if not session:
-            return None
+            raise ValueError("Session not found")
         
         answers = self.answer_model.get_by_session(session_id)
         
-        # Parse JSON answers
-        formatted_answers = {}
-        for ans in answers:
-            try:
-                value = json.loads(ans['answer_text'])
-            except:
-                value = ans['answer_text']
-            formatted_answers[ans['question_id']] = value
+        # Format answers with questions
+        formatted_answers = []
+        for answer in answers:
+            node = self.nodes_dict.get(answer['question_id'])
+            if node:
+                formatted_answers.append({
+                    'question_id': answer['question_id'],
+                    'question_text': node.get('text', ''),
+                    'answer': answer['answer_text'],
+                    'input_type': node.get('input_type', 'text')
+                })
         
         return {
             'session_id': session_id,
             'status': session['status'],
             'created_at': session['created_at'],
-            'last_updated': session['last_updated'],
             'answers': formatted_answers
-        }
-    
-    def _format_question(self, question: Dict[str, Any]) -> Dict[str, Any]:
-        """Format question for frontend"""
-        formatted = {
-            'id': question['id'],
-            'text': question['question_text'],
-            'type': question['type'],
-            'required': question['required']
-        }
-        
-        if 'options' in question:
-            formatted['options'] = question['options']
-        if 'placeholder' in question:
-            formatted['placeholder'] = question['placeholder']
-        if 'validation' in question:
-            formatted['validation'] = question['validation']
-        
-        return formatted
-    
-    def _get_progress_from_memory(self, session_id: str) -> Dict[str, int]:
-        """Calculate progress from in-memory answers"""
-        answers_count = len(self.pending_answers.get(session_id, {}))
-        current = answers_count + 1
-        total = len(self.questions)
-        
-        return {
-            'current': min(current, total),
-            'total': total,
-            'percentage': int((answers_count / total) * 100)
         }

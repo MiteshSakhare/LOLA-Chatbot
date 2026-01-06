@@ -1,84 +1,156 @@
 {
-  "questions": [
+  "flow_id": "marketing_questionnaire_v1",
+  "version": "1.0",
+  "nodes": [
     {
-      "id": "business_name_timezone",
-      "order": 1,
-      "question_text": "What is the name of your business and your timezone?",
-      "type": "text",
+      "id": "q1",
+      "type": "question",
+      "text": "Describe your ideal customer profile in the following dimensions:",
+      "input_type": "multi_field",
+      "fields": [
+        {
+          "name": "age_group",
+          "label": "Age Group",
+          "type": "text",
+          "placeholder": "e.g., 25-35"
+        },
+        {
+          "name": "gender",
+          "label": "Gender",
+          "type": "text",
+          "placeholder": "e.g., All genders"
+        },
+        {
+          "name": "demographics",
+          "label": "Demographics",
+          "type": "text",
+          "placeholder": "e.g., Urban professionals"
+        },
+        {
+          "name": "income",
+          "label": "Income",
+          "type": "text",
+          "placeholder": "e.g., $50k-$100k"
+        },
+        {
+          "name": "education",
+          "label": "Education",
+          "type": "text",
+          "placeholder": "e.g., College educated"
+        },
+        {
+          "name": "geo_location",
+          "label": "Geo Location",
+          "type": "text",
+          "placeholder": "e.g., United States"
+        },
+        {
+          "name": "lifestyle_values",
+          "label": "Lifestyle Values",
+          "type": "text",
+          "placeholder": "e.g., Organic, Sustainable, Economical"
+        }
+      ],
       "required": true,
-      "validation": {
-        "min_length": 2,
-        "max_length": 200
-      },
-      "placeholder": "e.g., Acme Corp, EST"
+      "next": "q2"
     },
     {
-      "id": "vertical",
-      "order": 2,
-      "question_text": "What is your vertical?",
-      "type": "single_choice",
-      "required": true,
+      "id": "q2",
+      "type": "question",
+      "text": "At the Corporate level, please stack rank your top business priorities over the next 6 months?",
+      "input_type": "ranking",
       "options": [
-        "Health",
-        "Wellness",
-        "Beauty",
-        "Retail",
-        "Hospitality",
-        "Food & Beverage",
+        "Growing revenue",
+        "Increasing profitability",
+        "R&D",
+        "Expand Sales channels",
+        "Expand Product Lines"
+      ],
+      "required": true,
+      "next": "q2_conditional"
+    },
+    {
+      "id": "q2_conditional",
+      "type": "conditional",
+      "condition": {
+        "question_id": "q2",
+        "check_type": "first_rank",
+        "value": "Growing revenue"
+      },
+      "if_true": "q2_1",
+      "if_false": "q3_1"
+    },
+    {
+      "id": "q2_1",
+      "type": "question",
+      "text": "Where do we want to be?",
+      "input_type": "text",
+      "required": true,
+      "next": "q3_1"
+    },
+    {
+      "id": "q3_1",
+      "type": "question",
+      "text": "What marketing Channels do you currently use?",
+      "input_type": "multi_choice",
+      "options": [
+        "eCommerce",
+        "Owned retail",
+        "Wholesale",
+        "Reseller",
+        "Amazon",
+        "TikTok Shop",
         "Other"
-      ]
+      ],
+      "allow_other": true,
+      "required": true,
+      "next": "q3_2"
     },
     {
-      "id": "brand",
-      "order": 3,
-      "question_text": "Please configure/share your brand including colors and visuals",
-      "type": "text",
-      "required": true,
-      "validation": {
-        "min_length": 5,
-        "max_length": 500
-      },
-      "placeholder": "Describe your brand colors, logo, visual identity..."
-    },
-    {
-      "id": "success",
-      "order": 4,
-      "question_text": "What does success look like?",
-      "type": "single_choice",
-      "required": true,
+      "id": "q3_2",
+      "type": "question",
+      "text": "What are your key metrics over past three months?",
+      "input_type": "multi_choice",
       "options": [
-        "Grow revenue",
-        "Drive loyalty",
-        "Improve repeat customers",
-        "Drive retention",
-        "Win in new markets",
-        "Enter new verticals",
-        "Other"
-      ]
+        "Customer Acquisition Cost (Analytics Platforms)",
+        "ROAS - Return on Ad Spend",
+        "MER - Media Efficiency Ratio"
+      ],
+      "required": true,
+      "next": "q3_2_conditional"
     },
     {
-      "id": "revenue",
-      "order": 5,
-      "question_text": "What is your current revenue?",
-      "type": "single_choice",
-      "required": true,
-      "options": [
-        "less than $1m",
-        "$1m-$5m",
-        "$5m-$10m",
-        "$10m+"
-      ]
-    },
-    {
-      "id": "retention_reason",
-      "order": 6,
-      "question_text": "What do you believe keeps your customers coming back?",
-      "type": "multi_choice",
-      "required": true,
-      "validation": {
-        "min_selections": 1,
-        "max_selections": 5
+      "id": "q3_2_conditional",
+      "type": "conditional",
+      "condition": {
+        "question_id": "q3_2",
+        "check_type": "has_answer"
       },
+      "if_true": "q3_3",
+      "if_false": "q4"
+    },
+    {
+      "id": "q3_3",
+      "type": "question",
+      "text": "Are these metrics hitting your set targets (why and why not?)",
+      "input_type": "text",
+      "required": true,
+      "next": "q4"
+    },
+    {
+      "id": "q4",
+      "type": "question",
+      "text": "What is the Lifetime value of your customer by channel?",
+      "input_type": "text",
+      "help_text": "If you don't know LTV, it's a crucial metric that represents the total revenue you can expect from a customer over their entire relationship with your business.",
+      "required": false,
+      "next": "q5"
+    },
+    {
+      "id": "q5",
+      "type": "question",
+      "text": "What do you believe keep your customers coming back?",
+      "input_type": "multi_choice",
       "options": [
         "Awesome product",
         "Great price",
@@ -87,105 +159,144 @@
         "Our community",
         "Top quality",
         "Other"
-      ]
+      ],
+      "allow_other": true,
+      "required": true,
+      "next": "q6"
     },
     {
-      "id": "dropoff_stage",
-      "order": 7,
-      "question_text": "Where do you see the biggest drop-offs happen in the customer lifecycle?",
-      "type": "single_choice",
-      "required": true,
+      "id": "q6",
+      "type": "question",
+      "text": "Where do you see the biggest drop-offs happen in the customer lifecycle?",
+      "input_type": "multi_choice",
       "options": [
         "During awareness phase",
         "When on the site considering a purchase",
         "During check-out",
-        "Repeat purchase"
-      ]
+        "Before first purchase",
+        "Before 2nd purchase",
+        "After 2nd purchase",
+        "Other"
+      ],
+      "allow_other": true,
+      "required": true,
+      "next": "q8"
     },
     {
-      "id": "dropoff_reason",
-      "order": 8,
-      "question_text": "Do you know why customers drop off?",
-      "type": "single_choice",
-      "required": true,
+      "id": "q8",
+      "type": "question",
+      "text": "What are the common hesitations customers may have about your product/service?",
+      "input_type": "multi_choice",
       "options": [
         "Price",
         "Competition",
+        "Quality",
+        "Abundance",
         "Relevance",
         "Trust",
         "Unclear product information",
         "Other (please explain)"
-      ]
+      ],
+      "allow_other": true,
+      "required": true,
+      "next": "q10"
     },
     {
-      "id": "email_role",
-      "order": 9,
-      "question_text": "What role does email marketing play compared to other channels?",
-      "type": "single_choice",
-      "required": true,
+      "id": "q10",
+      "type": "question",
+      "text": "Please stack in order of importance to you and the marketing team (1 being the most important):",
+      "input_type": "ranking",
       "options": [
-        "Revenue engine",
-        "Brand building",
-        "Engagement"
-      ]
+        "CSAT - Customer Satisfaction",
+        "Revenue growth",
+        "Engagement",
+        "Build Audience",
+        "Loyalty/Retention",
+        "Brand awareness"
+      ],
+      "required": true,
+      "next": "q11"
     },
     {
-      "id": "email_performance",
-      "order": 10,
-      "question_text": "Where do you see email performing best?",
-      "type": "multi_choice",
-      "required": true,
-      "validation": {
-        "min_selections": 1,
-        "max_selections": 8
-      },
-      "options": [
-        "Awareness",
-        "Consideration",
-        "Conversion moment",
-        "Customer loyalty",
-        "Enhancing engagement rates",
-        "Effective promos",
-        "Are your emails too transactional rather than emotional",
-        "Too weak for community building",
-        "Low virality",
-        "Poor VIP experience",
-        "Win-back",
-        "Other"
-      ]
+      "id": "q11",
+      "type": "question",
+      "text": "Please configure/share your brand identity, colors, visuals, fonts, voice & tone. Please provide as much detail or as many files as possible.",
+      "input_type": "text",
+      "placeholder": "Describe your brand identity or paste links to brand assets",
+      "required": false,
+      "next": "q12"
     },
     {
-      "id": "ideal_customer",
-      "order": 11,
-      "question_text": "Describe your ideal customer profile in the following dimensions: Age Group, Gender, Income, Geo Location, Lifestyle Values (e.g. Organic, Sustainable, Cheap/Economical)",
-      "type": "text",
+      "id": "q12",
+      "type": "question",
+      "text": "As the head of marketing, what tactics do you need to get better at to achieve your growth goals? On a sliding scale 1-10 (10 being the most important), rank the below:",
+      "input_type": "scale",
+      "fields": [
+        {
+          "name": "analytics",
+          "label": "Stronger business analytics and data analysis",
+          "min": 1,
+          "max": 10
+        },
+        {
+          "name": "copywriting",
+          "label": "More effective persuasive copy",
+          "min": 1,
+          "max": 10
+        },
+        {
+          "name": "promo_campaigns",
+          "label": "More effective promo campaigns/personalization",
+          "min": 1,
+          "max": 10
+        },
+        {
+          "name": "creative",
+          "label": "More effective creative",
+          "min": 1,
+          "max": 10
+        },
+        {
+          "name": "segmented_campaigns",
+          "label": "Smarter segmented & engaged campaigns",
+          "min": 1,
+          "max": 10
+        }
+      ],
       "required": true,
-      "validation": {
-        "min_length": 20,
-        "max_length": 1000
-      },
-      "placeholder": "Describe age, gender, income, location, and lifestyle values..."
+      "next": "q13_conditional"
     },
     {
-      "id": "top_goals",
-      "order": 12,
-      "question_text": "What are your top 3 primary goals for the next 12 months? (Choose three options)",
-      "type": "multi_choice",
-      "required": true,
-      "validation": {
-        "min_selections": 3,
-        "max_selections": 3
+      "id": "q13_conditional",
+      "type": "conditional",
+      "condition": {
+        "check_type": "shopify_connected",
+        "value": false
       },
-      "options": [
-        "Increase repeat purchases",
-        "Boost revenue",
-        "Grow subscriptions/refills",
-        "Increase profitability",
-        "Increase AOV through bundles/upsells",
-        "Improve email engagement",
-        "Reduce churn",
-        "Other"
-      ]
+      "if_true": "q13",
+      "if_false": "end"
+    },
+    {
+      "id": "q13",
+      "type": "question",
+      "text": "What are your best-selling products?",
+      "input_type": "text",
+      "required": false,
+      "next": "q13_1"
+    },
+    {
+      "id": "q13_1",
+      "type": "question",
+      "text": "Are there products/SKUs that have higher priority for advertising?",
+      "input_type": "text",
+      "help_text": "Tell me more. Are these products a top seller for you, or are you simply trying to move them?",
+      "required": false,
+      "next": "end"
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "message": "Thank you for completing the marketing questionnaire! 🎉"
     }
   ]
 }
