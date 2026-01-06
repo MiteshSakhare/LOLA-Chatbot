@@ -107,3 +107,20 @@ def export_responses():
         mimetype='text/csv',
         headers={'Content-Disposition': 'attachment;filename=responses.csv'}
     )
+
+
+@bp.route('/cleanup-incomplete', methods=['POST'])
+def cleanup_incomplete_sessions():
+    """Manually cleanup all incomplete sessions older than X minutes"""
+    try:
+        data = request.get_json() or {}
+        minutes = data.get('minutes', 30)
+        
+        deleted = session_model.cleanup_abandoned(minutes=minutes)
+        return jsonify({
+            'message': f'Cleaned up {deleted} incomplete sessions',
+            'deleted_count': deleted
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

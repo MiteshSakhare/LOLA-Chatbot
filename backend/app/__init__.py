@@ -80,5 +80,21 @@ def create_app():
     def health():
         """Health check endpoint"""
         return jsonify({'status': 'healthy', 'timestamp': str(db_path)}), 200
+        # Auto-cleanup abandoned sessions every 30 minutes
+    import atexit
+    from apscheduler.schedulers.background import BackgroundScheduler
+    
+    def cleanup_abandoned_sessions():
+        """Clean up sessions abandoned for more than 30 minutes"""
+        with app.app_context():
+            deleted = session_model.cleanup_abandoned(minutes=30)
+            print(f"[CLEANUP] Deleted {deleted} abandoned sessions")
+    
+    # Only run scheduler in main process (not reloader)
+    if os.environ.get('WERKZEUG_RUN_MAIN') == 'true' or not app.debug:
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(func=cleanup_abandoned_sessions, trigger="interval", minutes=30)
+        scheduler.start()
+        atexit.register(lambda: scheduler.shutdown())
     
     return app

@@ -1,275 +1,527 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import toast from 'react-hot-toast';
+
+// Components
 import ThemeToggle from '../Shared/ThemeToggle';
+
+// Icons
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import CleaningServicesIcon from '@mui/icons-material/CleaningServices';
-import ChatIcon from '@mui/icons-material/Chat';
+import BarChartIcon from '@mui/icons-material/BarChart';
+import TaskAltIcon from '@mui/icons-material/TaskAlt';
+import PendingActionsIcon from '@mui/icons-material/PendingActions';
+import PercentIcon from '@mui/icons-material/Percent';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import DeleteIcon from '@mui/icons-material/Delete';
+import CloseIcon from '@mui/icons-material/Close';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+
+// Styles
 import './Dashboard.css';
 
+// ============================================
+// CONSTANTS
+// ============================================
 const API_BASE = 'http://localhost:5000';
+const PER_PAGE = 20;
+const CLEANUP_MINUTES = 30;
 
+const ANIMATION_VARIANTS = {
+  container: {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 },
+    },
+  },
+  item: {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0 },
+  },
+};
+
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+const getStatusBadgeClass = (status) => {
+  const statusMap = {
+    completed: 'status-completed',
+    in_progress: 'status-in-progress',
+    abandoned: 'status-abandoned',
+  };
+  return `status-badge ${statusMap[status] || 'status-badge'}`;
+};
+
+const formatDate = (dateString) => {
+  const date = new Date(dateString);
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const truncateId = (id, length = 8) => {
+  return id ? `${id.substring(0, length)}...` : 'N/A';
+};
+
+// ============================================
+// SUB-COMPONENTS
+// ============================================
+const LoadingSpinner = ({ message = 'Loading...' }) => (
+  <div className="dashboard-loading">
+    <motion.div
+      initial={{ scale: 0 }}
+      animate={{ scale: 1 }}
+      transition={{ type: 'spring' }}
+    >
+      <div className="spinner" />
+    </motion.div>
+    <motion.p
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.2 }}
+    >
+      {message}
+    </motion.p>
+  </div>
+);
+
+const EmptyState = () => (
+  <motion.div
+    className="empty-state"
+    initial={{ opacity: 0, scale: 0.9 }}
+    animate={{ opacity: 1, scale: 1 }}
+  >
+    <BarChartIcon />
+    <h3>No Sessions Yet</h3>
+    <p>Start a conversation to see data here.</p>
+  </motion.div>
+);
+
+const StatsCard = ({ icon: Icon, label, value, delay }) => (
+  <motion.div
+    className="stat-card"
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay }}
+    whileHover={{ y: -5 }}
+  >
+    <div className="stat-header">
+      <div className="stat-icon">
+        <Icon />
+      </div>
+      <span className="stat-label">{label}</span>
+    </div>
+    <div className="stat-value">{value}</div>
+  </motion.div>
+);
+
+const DeleteConfirmModal = ({ session, onConfirm, onCancel }) => (
+  <motion.div
+    className="modal-overlay"
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    onClick={onCancel}
+  >
+    <motion.div
+      className="modal-content"
+      initial={{ scale: 0.9, y: 20 }}
+      animate={{ scale: 1, y: 0 }}
+      exit={{ scale: 0.9, y: 20 }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="modal-header">
+        <h3>Confirm Delete</h3>
+        <button className="modal-close" onClick={onCancel}>
+          <CloseIcon />
+        </button>
+      </div>
+      <div className="modal-body">
+        <p>
+          Are you sure you want to delete session{' '}
+          <strong>{truncateId(session?.id)}</strong>?
+        </p>
+        <p className="modal-warning">This action cannot be undone.</p>
+      </div>
+      <div className="modal-actions">
+        <motion.button
+          className="btn btn-secondary"
+          onClick={onCancel}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          Cancel
+        </motion.button>
+        <motion.button
+          className="btn btn-error"
+          onClick={onConfirm}
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          <DeleteIcon />
+          Delete Session
+        </motion.button>
+      </div>
+    </motion.div>
+  </motion.div>
+);
+
+const SessionRow = ({ session, onView, onDelete, index }) => (
+  <motion.tr
+    initial={{ opacity: 0, x: -20 }}
+    animate={{ opacity: 1, x: 0 }}
+    transition={{ delay: index * 0.05 }}
+    whileHover={{ backgroundColor: 'var(--color-background)' }}
+  >
+    <td>
+      <span className="session-id-cell">{truncateId(session.id)}</span>
+    </td>
+    <td>
+      <span className={getStatusBadgeClass(session.status)}>
+        {session.status === 'completed' ? (
+          <CheckCircleIcon style={{ fontSize: '1rem' }} />
+        ) : (
+          <HourglassEmptyIcon style={{ fontSize: '1rem' }} />
+        )}
+        {session.status.replace('_', ' ')}
+      </span>
+    </td>
+    <td>{formatDate(session.created_at)}</td>
+    <td>
+      <span className="answers-count">{session.answers_count}</span>
+    </td>
+    <td>
+      <div className="table-actions">
+        <motion.button
+          className="icon-btn"
+          onClick={() => onView(session.id)}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          title="View Details"
+        >
+          <VisibilityIcon />
+        </motion.button>
+        <motion.button
+          className="icon-btn icon-btn-delete"
+          onClick={() => onDelete(session)}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          title="Delete Session"
+        >
+          <DeleteIcon />
+        </motion.button>
+      </div>
+    </td>
+  </motion.tr>
+);
+
+const Pagination = ({ current, total, onChange }) => {
+  if (total <= 1) return null;
+
+  return (
+    <div className="pagination">
+      <motion.button
+        className="btn btn-secondary"
+        onClick={() => onChange(current - 1)}
+        disabled={current === 1}
+        whileHover={{ scale: current === 1 ? 1 : 1.05 }}
+        whileTap={{ scale: current === 1 ? 1 : 0.95 }}
+      >
+        Previous
+      </motion.button>
+      <span className="pagination-info">
+        Page {current} of {total}
+      </span>
+      <motion.button
+        className="btn btn-secondary"
+        onClick={() => onChange(current + 1)}
+        disabled={current === total}
+        whileHover={{ scale: current === total ? 1 : 1.05 }}
+        whileTap={{ scale: current === total ? 1 : 0.95 }}
+      >
+        Next
+      </motion.button>
+    </div>
+  );
+};
+
+// ============================================
+// MAIN COMPONENT
+// ============================================
 const Dashboard = () => {
+  // ========== STATE ==========
   const [sessions, setSessions] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadSessions();
-  }, [page]);
+  // ========== COMPUTED VALUES ==========
+  const stats = useMemo(() => {
+    const total = sessions.length;
+    const completed = sessions.filter((s) => s.status === 'completed').length;
+    const inProgress = sessions.filter((s) => s.status === 'in_progress').length;
+    const totalAnswers = sessions.reduce((sum, s) => sum + s.answers_count, 0);
 
-  const loadSessions = async () => {
+    return {
+      total,
+      completed,
+      inProgress,
+      totalAnswers,
+      completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
+    };
+  }, [sessions]);
+
+  // ========== CALLBACKS ==========
+  const loadSessions = useCallback(async () => {
     setIsLoading(true);
-    setError(null);
     try {
       const response = await axios.get(`${API_BASE}/admin/responses`, {
-        params: { page, per_page: 20 }
+        params: { page, per_page: PER_PAGE },
       });
       setSessions(response.data.sessions);
       setPagination(response.data.pagination);
+      toast.success(`Loaded ${response.data.sessions.length} sessions`);
     } catch (error) {
       console.error('Failed to load sessions:', error);
-      setError(error.response?.data?.error || error.message || 'Failed to load sessions');
+      toast.error(error.response?.data?.error || 'Failed to load sessions');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [page]);
 
-  const handleExport = async () => {
-    try {
-      const response = await axios.get(`${API_BASE}/admin/export?format=csv`, {
-        responseType: 'blob'
+  const handleExport = useCallback(async () => {
+    const exportPromise = axios
+      .get(`${API_BASE}/admin/export?format=csv`, { responseType: 'blob' })
+      .then((response) => {
+        const blob = response.data;
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `lola_responses_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
       });
-      const blob = response.data;
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `responses_${new Date().toISOString().split('T')[0]}.csv`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Export failed:', error);
-      alert('Export failed: ' + (error.message || 'Unknown error'));
-    }
-  };
 
-  const handleDelete = async (sessionId) => {
-    try {
-      await axios.delete(`${API_BASE}/admin/response/${sessionId}`);
-      loadSessions();
-      setDeleteConfirm(null);
-    } catch (error) {
-      console.error('Delete failed:', error);
-      alert('Delete failed: ' + (error.response?.data?.error || error.message));
-    }
-  };
+    toast.promise(exportPromise, {
+      loading: 'Exporting data...',
+      success: 'CSV downloaded successfully! 📥',
+      error: 'Export failed',
+    });
+  }, []);
 
-  const handleCleanup = async () => {
-    const minutes = 30;
-    if (!confirm(`Clean up abandoned sessions with no answers that are older than ${minutes} minutes?`)) {
-      return;
-    }
-    
-    try {
-      const response = await axios.post(`${API_BASE}/admin/cleanup?minutes=${minutes}`);
-      alert(response.data.message);
-      loadSessions();
-    } catch (error) {
-      console.error('Cleanup failed:', error);
-      alert('Cleanup failed: ' + (error.response?.data?.error || error.message));
-    }
-  };
+  const handleDelete = useCallback(
+    async (sessionId) => {
+      const deletePromise = axios
+        .delete(`${API_BASE}/admin/response/${sessionId}`)
+        .then(() => {
+          loadSessions();
+          setDeleteConfirm(null);
+        });
 
-  const getStatusBadgeClass = (status) => {
-    switch (status) {
-      case 'completed':
-        return 'badge badge-success';
-      case 'in_progress':
-        return 'badge badge-warning';
-      default:
-        return 'badge badge-error';
-    }
-  };
+      toast.promise(deletePromise, {
+        loading: 'Deleting session...',
+        success: 'Session deleted successfully! 🗑️',
+        error: 'Failed to delete session',
+      });
+    },
+    [loadSessions]
+  );
 
+  const handleCleanup = useCallback(async () => {
+    const cleanupPromise = axios
+      .post(`${API_BASE}/admin/cleanup?minutes=${CLEANUP_MINUTES}`)
+      .then((response) => {
+        loadSessions();
+        return response.data.message;
+      });
+
+    toast.promise(cleanupPromise, {
+      loading: 'Cleaning up abandoned sessions...',
+      success: (message) => message || 'Cleanup completed! ✨',
+      error: 'Cleanup failed',
+    });
+  }, [loadSessions]);
+
+  const handleView = useCallback(
+    (sessionId) => {
+      navigate(`/admin/response/${sessionId}`);
+    },
+    [navigate]
+  );
+
+  const handlePageChange = useCallback((newPage) => {
+    setPage(newPage);
+  }, []);
+
+  // ========== EFFECTS ==========
+  useEffect(() => {
+    loadSessions();
+  }, [loadSessions]);
+
+  // ========== RENDER ==========
   return (
-    <div className="admin-dashboard">
-      <div className="dashboard-header">
-        <div className="header-top">
-          <div className="header-title">
-            <DashboardIcon style={{ fontSize: '32px' }} />
-            <h1>Admin Dashboard</h1>
-          </div>
+    <div className="dashboard">
+      {/* Header */}
+      <motion.div
+        className="dashboard-header"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <div className="dashboard-title">
+          <DashboardIcon />
+          <h1>Admin Dashboard</h1>
+        </div>
+        <div className="dashboard-actions">
+          <motion.button
+            className="btn btn-secondary"
+            onClick={handleExport}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <FileDownloadIcon />
+            Export CSV
+          </motion.button>
+          <motion.button
+            className="btn btn-secondary"
+            onClick={handleCleanup}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <CleaningServicesIcon />
+            Cleanup
+          </motion.button>
           <ThemeToggle />
         </div>
-        
-        <div className="header-actions">
-          <button onClick={handleCleanup} className="btn btn-warning btn-sm">
-            <CleaningServicesIcon style={{ fontSize: '18px' }} />
-            Cleanup
-          </button>
-          <button onClick={handleExport} className="btn btn-success btn-sm">
-            <FileDownloadIcon style={{ fontSize: '18px' }} />
-            Export CSV
-          </button>
-          <button onClick={() => navigate('/')} className="btn btn-primary btn-sm">
-            <ChatIcon style={{ fontSize: '18px' }} />
-            Chat
-          </button>
+      </motion.div>
+
+      {/* Stats Cards */}
+      {!isLoading && sessions.length > 0 && (
+        <motion.div
+          className="stats-grid"
+          variants={ANIMATION_VARIANTS.container}
+          initial="hidden"
+          animate="show"
+        >
+          <StatsCard
+            icon={BarChartIcon}
+            label="Total Sessions"
+            value={stats.total}
+            delay={0}
+          />
+          <StatsCard
+            icon={TaskAltIcon}
+            label="Completed"
+            value={stats.completed}
+            delay={0.1}
+          />
+          <StatsCard
+            icon={PendingActionsIcon}
+            label="In Progress"
+            value={stats.inProgress}
+            delay={0.2}
+          />
+          <StatsCard
+            icon={PercentIcon}
+            label="Completion Rate"
+            value={`${stats.completionRate}%`}
+            delay={0.3}
+          />
+        </motion.div>
+      )}
+
+      {/* Sessions Table */}
+      <motion.div
+        className="responses-section"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <div className="section-header">
+          <div className="section-title">
+            <BarChartIcon />
+            <h2>Recent Sessions</h2>
+          </div>
+          <div className="section-actions">
+            <motion.button
+              className="btn btn-primary"
+              onClick={loadSessions}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              Refresh
+            </motion.button>
+          </div>
         </div>
-      </div>
 
-      <div className="dashboard-content">
-        {error && (
-          <div className="alert alert-error">
-            <strong>Error:</strong> {error}
-          </div>
-        )}
+        {/* Loading State */}
+        {isLoading && <LoadingSpinner message="Loading sessions..." />}
 
-        {isLoading ? (
-          <div className="loading-state">
-            <div className="spinner"></div>
-            <p>Loading sessions...</p>
-          </div>
-        ) : (
+        {/* Empty State */}
+        {!isLoading && sessions.length === 0 && <EmptyState />}
+
+        {/* Table */}
+        {!isLoading && sessions.length > 0 && (
           <>
-            {sessions.length === 0 ? (
-              <div className="empty-state card">
-                <ChatIcon style={{ fontSize: '64px', color: 'var(--color-text-tertiary)', marginBottom: '1rem' }} />
-                <h3>No Sessions Found</h3>
-                <p>Start a conversation to see data here.</p>
-                <button onClick={() => navigate('/')} className="btn btn-primary">
-                  <ChatIcon style={{ fontSize: '18px' }} />
-                  Start Chat
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="stats-grid">
-                  <div className="stat-card card">
-                    <div className="stat-value">{pagination?.total || 0}</div>
-                    <div className="stat-label">Total Sessions</div>
-                  </div>
-                  <div className="stat-card card">
-                    <div className="stat-value">
-                      {sessions.filter(s => s.status === 'completed').length}
-                    </div>
-                    <div className="stat-label">Completed</div>
-                  </div>
-                  <div className="stat-card card">
-                    <div className="stat-value">
-                      {sessions.filter(s => s.status === 'in_progress').length}
-                    </div>
-                    <div className="stat-label">In Progress</div>
-                  </div>
-                </div>
+            <div className="responses-table-wrapper">
+              <table className="responses-table">
+                <thead>
+                  <tr>
+                    <th>Session ID</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Answers</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <AnimatePresence>
+                    {sessions.map((session, index) => (
+                      <SessionRow
+                        key={session.id}
+                        session={session}
+                        onView={handleView}
+                        onDelete={setDeleteConfirm}
+                        index={index}
+                      />
+                    ))}
+                  </AnimatePresence>
+                </tbody>
+              </table>
+            </div>
 
-                <div className="table-container card">
-                  <table className="sessions-table">
-                    <thead>
-                      <tr>
-                        <th>Session ID</th>
-                        <th>Status</th>
-                        <th>Created</th>
-                        <th>Answers</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sessions.map((session) => (
-                        <tr key={session.id}>
-                          <td className="session-id">{session.id.substring(0, 8)}...</td>
-                          <td>
-                            <span className={getStatusBadgeClass(session.status)}>
-                              {session.status.replace('_', ' ')}
-                            </span>
-                          </td>
-                          <td className="date-cell">
-                            {new Date(session.created_at).toLocaleString()}
-                          </td>
-                          <td className="answers-count">{session.answers_count}</td>
-                          <td>
-                            <div className="action-buttons">
-                              <button
-                                onClick={() => navigate(`/admin/response/${session.id}`)}
-                                className="btn btn-primary btn-sm"
-                                title="View Details"
-                              >
-                                <VisibilityIcon style={{ fontSize: '18px' }} />
-                              </button>
-                              <button
-                                onClick={() => setDeleteConfirm(session.id)}
-                                className="btn btn-error btn-sm"
-                                title="Delete Session"
-                              >
-                                <DeleteIcon style={{ fontSize: '18px' }} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {pagination && pagination.pages > 1 && (
-                  <div className="pagination">
-                    <button
-                      onClick={() => setPage(p => Math.max(1, p - 1))}
-                      disabled={page === 1}
-                      className="btn btn-secondary btn-sm"
-                    >
-                      Previous
-                    </button>
-                    <span className="pagination-info">
-                      Page {page} of {pagination.pages}
-                    </span>
-                    <button
-                      onClick={() => setPage(p => p + 1)}
-                      disabled={page >= pagination.pages}
-                      className="btn btn-secondary btn-sm"
-                    >
-                      Next
-                    </button>
-                  </div>
-                )}
-              </>
+            {/* Pagination */}
+            {pagination && (
+              <Pagination
+                current={pagination.page}
+                total={pagination.pages}
+                onChange={handlePageChange}
+              />
             )}
           </>
         )}
-      </div>
+      </motion.div>
 
       {/* Delete Confirmation Modal */}
-      {deleteConfirm && (
-        <div className="modal-overlay">
-          <div className="modal-content card">
-            <DeleteIcon style={{ fontSize: '48px', color: 'var(--color-error)', marginBottom: '1rem' }} />
-            <h2>Confirm Delete</h2>
-            <p>Are you sure you want to delete this session? This action cannot be undone.</p>
-            <div className="modal-actions">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="btn btn-secondary"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleDelete(deleteConfirm)}
-                className="btn btn-error"
-              >
-                <DeleteIcon style={{ fontSize: '18px' }} />
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {deleteConfirm && (
+          <DeleteConfirmModal
+            session={deleteConfirm}
+            onConfirm={() => handleDelete(deleteConfirm.id)}
+            onCancel={() => setDeleteConfirm(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

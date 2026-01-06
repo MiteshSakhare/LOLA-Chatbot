@@ -29,7 +29,7 @@ def start_session():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@bp.route('/<session_id>/answer', methods=['POST'])  # ✅ FIXED!
+@bp.route('/<session_id>/answer', methods=['POST'])
 def submit_answer(session_id):
     """Submit an answer"""
     try:
@@ -62,4 +62,34 @@ def get_summary(session_id):
     except ValueError as e:
         return jsonify({'error': str(e)}), 404
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/<session_id>', methods=['DELETE', 'POST'])
+def delete_session(session_id):
+    """Delete an in-progress session"""
+    try:
+        # Handle sendBeacon POST with _method=DELETE
+        if request.method == 'POST':
+            method = request.form.get('_method', '').upper()
+            if method != 'DELETE':
+                return jsonify({'error': 'Invalid method'}), 400
+        
+        # Get services from app config
+        from flask import current_app
+        session_model = current_app.config['SESSION_MODEL']
+        
+        session = session_model.get(session_id)
+        if not session:
+            return jsonify({'message': 'Session not found or already deleted'}), 200
+        
+        # Only delete if in_progress (preserve completed sessions)
+        if session['status'] == 'in_progress':
+            session_model.delete(session_id)
+            return jsonify({'message': 'Session deleted successfully'}), 200
+        else:
+            return jsonify({'message': 'Session already completed'}), 200
+            
+    except Exception as e:
+        print(f"[ERROR] Delete session failed: {str(e)}")
         return jsonify({'error': str(e)}), 500
